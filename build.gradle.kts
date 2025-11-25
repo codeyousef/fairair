@@ -32,8 +32,3 @@ subprojects {
     }
 }
 
-tasks.matching { it.name == "clean" }.configureEach {
-    if (this is Delete) {
-        delete(rootProject.layout.buildDirectory)
-    }
-}
