@@ -23,6 +23,8 @@ import com.flyadeal.app.api.StationDto
 import com.flyadeal.app.navigation.AppScreen
 import com.flyadeal.app.ui.components.*
 import com.flyadeal.app.ui.screens.results.ResultsScreen
+import com.flyadeal.app.ui.screens.saved.SavedBookingsScreen
+import com.flyadeal.app.ui.screens.settings.SettingsScreen
 import com.flyadeal.app.ui.theme.FlyadealColors
 
 /**
@@ -55,7 +57,9 @@ class SearchScreen : Screen, AppScreen.Search {
                 }
             },
             onRetry = screenModel::retry,
-            onClearError = screenModel::clearError
+            onClearError = screenModel::clearError,
+            onNavigateToSettings = { navigator.push(SettingsScreen()) },
+            onNavigateToSavedBookings = { navigator.push(SavedBookingsScreen()) }
         )
     }
 }
@@ -75,7 +79,9 @@ private fun SearchScreenContent(
     onDecrementInfants: () -> Unit,
     onSearch: () -> Unit,
     onRetry: () -> Unit,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToSavedBookings: () -> Unit
 ) {
     var showOriginPicker by remember { mutableStateOf(false) }
     var showDestinationPicker by remember { mutableStateOf(false) }
@@ -98,7 +104,10 @@ private fun SearchScreenContent(
                     .background(MaterialTheme.colorScheme.background)
             ) {
                 // Header
-                SearchHeader()
+                SearchHeader(
+                    onSettingsClick = onNavigateToSettings,
+                    onSavedBookingsClick = onNavigateToSavedBookings
+                )
 
                 LazyColumn(
                     modifier = Modifier
@@ -239,25 +248,56 @@ private fun SearchScreenContent(
 }
 
 @Composable
-private fun SearchHeader() {
+private fun SearchHeader(
+    onSettingsClick: () -> Unit,
+    onSavedBookingsClick: () -> Unit
+) {
     Surface(
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            Text(
-                text = "flyadeal",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onPrimary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            // Top row with icons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Saved bookings button
+                IconButton(onClick = onSavedBookingsClick) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = "Saved Bookings",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+
+                // App title
+                Text(
+                    text = "flyadeal",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+
+                // Settings button
+                IconButton(onClick = onSettingsClick) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+
+            // Subtitle
             Text(
                 text = "Book your flight",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
             )
         }
     }
