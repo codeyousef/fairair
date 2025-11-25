@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.flyadeal.app.api.*
 import com.flyadeal.app.state.BookingFlowState
+import com.flyadeal.app.util.toDisplayMessage
 import com.flyadeal.app.state.SearchCriteria
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,12 +54,12 @@ class SearchScreenModel(
                 }
                 stationsResult is ApiResult.Error -> {
                     _uiState.update {
-                        it.copy(isLoading = false, error = stationsResult.message)
+                        it.copy(isLoading = false, error = stationsResult.toDisplayMessage())
                     }
                 }
                 routesResult is ApiResult.Error -> {
                     _uiState.update {
-                        it.copy(isLoading = false, error = (routesResult as ApiResult.Error).message)
+                        it.copy(isLoading = false, error = (routesResult as ApiResult.Error).toDisplayMessage())
                     }
                 }
             }
@@ -240,7 +241,7 @@ class SearchScreenModel(
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
-                        it.copy(isSearching = false, error = result.message)
+                        it.copy(isSearching = false, error = result.toDisplayMessage())
                     }
                 }
             }

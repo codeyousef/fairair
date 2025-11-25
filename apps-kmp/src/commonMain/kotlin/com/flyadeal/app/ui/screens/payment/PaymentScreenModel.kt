@@ -8,6 +8,7 @@ import com.flyadeal.app.api.ApiResult
 import com.flyadeal.app.api.PassengerDto
 import com.flyadeal.app.api.PaymentDto
 import com.flyadeal.app.state.BookingFlowState
+import com.flyadeal.app.util.toDisplayMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -239,7 +240,7 @@ class PaymentScreenModel(
                     _uiState.update {
                         it.copy(
                             isProcessing = false,
-                            error = result.message
+                            error = result.toDisplayMessage()
                         )
                     }
                 }
