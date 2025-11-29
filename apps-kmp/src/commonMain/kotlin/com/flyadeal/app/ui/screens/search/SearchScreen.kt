@@ -23,52 +23,69 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.flyadeal.app.api.StationDto
+import com.flyadeal.app.localization.LocalLocalization
+import com.flyadeal.app.localization.LocalStrings
 import com.flyadeal.app.navigation.AppScreen
 import com.flyadeal.app.ui.components.*
-import com.flyadeal.app.ui.screens.results.ResultsScreen
+import com.flyadeal.app.ui.screens.results.VelocityResultsScreen
 import com.flyadeal.app.ui.screens.saved.SavedBookingsScreen
-import com.flyadeal.app.ui.screens.settings.SettingsScreen
+import com.flyadeal.app.ui.screens.settings.VelocitySettingsScreen
 import com.flyadeal.app.ui.theme.FlyadealColors
 
 /**
  * Search screen - entry point of the booking flow.
- * Allows users to select origin, destination, date, and passengers.
+ * Now uses the Velocity natural language sentence builder UI.
  */
 class SearchScreen : Screen, AppScreen.Search {
 
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<SearchScreenModel>()
-        val uiState by screenModel.uiState.collectAsState()
+        val velocityState by screenModel.velocityState.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
+        val localization = LocalLocalization.current
+        val strings = LocalStrings.current
 
-        SearchScreenContent(
-            uiState = uiState,
-            onSelectOrigin = screenModel::selectOrigin,
-            onSelectDestination = screenModel::selectDestination,
-            onSwapAirports = screenModel::swapAirports,
-            onDateChange = screenModel::setDepartureDate,
-            onIncrementAdults = screenModel::incrementAdults,
-            onDecrementAdults = screenModel::decrementAdults,
-            onIncrementChildren = screenModel::incrementChildren,
-            onDecrementChildren = screenModel::decrementChildren,
-            onIncrementInfants = screenModel::incrementInfants,
-            onDecrementInfants = screenModel::decrementInfants,
-            onSearch = {
-                screenModel.search {
-                    navigator.push(ResultsScreen())
-                }
-            },
-            onRetry = screenModel::retry,
-            onClearError = screenModel::clearError,
-            onNavigateToSettings = { navigator.push(SettingsScreen()) },
-            onNavigateToSavedBookings = { navigator.push(SavedBookingsScreen()) }
-        )
+        when {
+            velocityState.isLoading -> {
+                VelocitySearchScreenLoading(isRtl = localization.isRtl)
+            }
+            velocityState.error != null && velocityState.availableOrigins.isEmpty() -> {
+                VelocitySearchScreenError(
+                    message = velocityState.error ?: "An error occurred",
+                    onRetry = screenModel::retry,
+                    isRtl = localization.isRtl,
+                    strings = strings
+                )
+            }
+            else -> {
+                VelocitySearchScreen(
+                    state = velocityState,
+                    strings = strings,
+                    isRtl = localization.isRtl,
+                    onOriginSelect = screenModel::selectVelocityOrigin,
+                    onDestinationSelect = screenModel::selectVelocityDestination,
+                    onDateSelect = screenModel::selectVelocityDate,
+                    onPassengerSelect = screenModel::setVelocityPassengerCount,
+                    onFieldActivate = screenModel::setActiveField,
+                    onSearch = {
+                        screenModel.searchFromVelocity {
+                            navigator.push(VelocityResultsScreen())
+                        }
+                    },
+                    onNavigateToSettings = { navigator.push(VelocitySettingsScreen()) },
+                    onNavigateToSavedBookings = { navigator.push(SavedBookingsScreen()) }
+                )
+            }
+        }
     }
 }
 
+/**
+ * Legacy search screen content - kept for reference but no longer used as primary UI.
+ */
 @Composable
-private fun SearchScreenContent(
+private fun LegacySearchScreenContent(
     uiState: SearchUiState,
     onSelectOrigin: (StationDto) -> Unit,
     onSelectDestination: (StationDto) -> Unit,
@@ -623,4 +640,3 @@ private fun PassengerCounter(
         }
     }
 }
-

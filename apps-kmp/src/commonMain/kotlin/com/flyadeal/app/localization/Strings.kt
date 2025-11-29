@@ -136,6 +136,25 @@ interface AppStrings {
     val serverError: String
     val unknownError: String
     val sessionExpired: String
+
+    // Velocity UI - Sentence Builder
+    val velocitySentencePrefix: String
+    val velocitySentenceFrom: String
+    val velocitySentenceTo: String
+    val velocitySentenceDeparting: String
+    val velocitySentenceWith: String
+    val velocitySelectOrigin: String
+    val velocitySelectDestination: String
+    val velocitySelectDate: String
+    val velocityAdult: String
+    val velocityAdults: String
+
+    // Velocity UI - Results
+    val velocityResultsTitle: String
+    val velocityFromPrice: String
+    val velocityNoResults: String
+    val velocityNoResultsHint: String
+    val velocitySearching: String
 }
 
 /**
@@ -274,6 +293,25 @@ object EnglishStrings : AppStrings {
     override val serverError = "Server error. Please try again later."
     override val unknownError = "An unexpected error occurred."
     override val sessionExpired = "Session expired. Please search again."
+
+    // Velocity UI - Sentence Builder
+    override val velocitySentencePrefix = "I want to fly"
+    override val velocitySentenceFrom = "from"
+    override val velocitySentenceTo = "to"
+    override val velocitySentenceDeparting = "departing on"
+    override val velocitySentenceWith = "with"
+    override val velocitySelectOrigin = "Origin"
+    override val velocitySelectDestination = "Destination"
+    override val velocitySelectDate = "Date"
+    override val velocityAdult = "Adult"
+    override val velocityAdults = "Adults"
+
+    // Velocity UI - Results
+    override val velocityResultsTitle = "Available Flights"
+    override val velocityFromPrice = "from"
+    override val velocityNoResults = "No flights found"
+    override val velocityNoResultsHint = "Try a different date or route"
+    override val velocitySearching = "Searching flights..."
 }
 
 /**
@@ -412,6 +450,25 @@ object ArabicStrings : AppStrings {
     override val serverError = "خطأ في الخادم. يرجى المحاولة لاحقاً."
     override val unknownError = "حدث خطأ غير متوقع."
     override val sessionExpired = "انتهت الجلسة. يرجى البحث مرة أخرى."
+
+    // Velocity UI - Sentence Builder
+    override val velocitySentencePrefix = "أبي أسافر"
+    override val velocitySentenceFrom = "من"
+    override val velocitySentenceTo = "إلى"
+    override val velocitySentenceDeparting = "بتاريخ"
+    override val velocitySentenceWith = "لعدد"
+    override val velocitySelectOrigin = "المغادرة"
+    override val velocitySelectDestination = "الوجهة"
+    override val velocitySelectDate = "التاريخ"
+    override val velocityAdult = "بالغ"
+    override val velocityAdults = "بالغين"
+
+    // Velocity UI - Results
+    override val velocityResultsTitle = "الرحلات المتاحة"
+    override val velocityFromPrice = "من"
+    override val velocityNoResults = "لا توجد رحلات"
+    override val velocityNoResultsHint = "جرب تاريخاً أو مساراً مختلفاً"
+    override val velocitySearching = "جاري البحث عن الرحلات..."
 }
 
 /**

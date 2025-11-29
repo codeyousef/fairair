@@ -113,3 +113,8 @@ This is "Project Shadow" - a Kotlin Multiplatform airline booking platform for f
 - Caffeine for in-memory caching
 - kotlinx-coroutines for async operations
 - kotlinx-datetime for date/time handling
+- Kotlin 2.0.21 (K2 compiler) + Compose Multiplatform 1.7.1, Voyager 1.1.0, Koin 4.0.0, Ktor Client 3.0.1 (003-velocity-ui-redesign)
+- N/A (UI-only, uses existing LocalStorage for preferences) (003-velocity-ui-redesign)
+
+## Recent Changes
+- 003-velocity-ui-redesign: Added Kotlin 2.0.21 (K2 compiler) + Compose Multiplatform 1.7.1, Voyager 1.1.0, Koin 4.0.0, Ktor Client 3.0.1

@@ -1,0 +1,724 @@
+openapi: 3.1.0
+info:
+  title: flyadeal Booking API
+  description: |
+    BFF (Backend for Frontend) API for the flyadeal airline booking platform.
+    This API serves the Compose Multiplatform frontend applications (Android, iOS, Web).
+  version: 1.0.0
+  contact:
+    name: flyadeal Development Team
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.flyadeal.com
+    description: Production server
+
+tags:
+  - name: Config
+    description: Application configuration endpoints
+  - name: Search
+    description: Flight search operations
+  - name: Booking
+    description: Booking creation and retrieval
+
+paths:
+  /v1/config/routes:
+    get:
+      tags:
+        - Config
+      operationId: getRouteMap
+      summary: Get valid route map
+      description: |
+        Returns the route network configuration mapping origin airports to valid destinations.
+        Called on app launch and cached client-side. Backend caches for 24 hours.
+      responses:
+        '200':
+          description: Route map retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteMapResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/config/stations:
+    get:
+      tags:
+        - Config
+      operationId: getStations
+      summary: Get all stations
+      description: Returns a list of all airports with their details.
+      responses:
+        '200':
+          description: Stations retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StationsResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/search:
+    post:
+      tags:
+        - Search
+      operationId: searchFlights
+      summary: Search available flights
+      description: |
+        Searches for available flights based on origin, destination, date, and passenger counts.
+        Results include fare families (Fly, Fly+, FlyMax) with pricing and inclusions.
+        Backend caches results for 5 minutes using composite key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlightSearchRequest'
+      responses:
+        '200':
+          description: Search results returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightResponse'
+        '400':
+          description: Invalid search parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/booking:
+    post:
+      tags:
+        - Booking
+      operationId: createBooking
+      summary: Create a new booking
+      description: |
+        Creates a booking for the selected flight with passenger details, ancillaries, and payment.
+        Returns a PNR code on success. Uses mock payment processing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingConfirmation'
+        '400':
+          description: Invalid booking request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Flight no longer available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Payment processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/booking/{pnr}:
+    get:
+      tags:
+        - Booking
+      operationId: getBooking
+      summary: Retrieve booking by PNR
+      description: Retrieves booking details by PNR code.
+      parameters:
+        - name: pnr
+          in: path
+          required: true
+          description: 6-character alphanumeric PNR code
+          schema:
+            type: string
+            pattern: '^[A-Z0-9]{6}$'
+            example: ABC123
+      responses:
+        '200':
+          description: Booking retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingConfirmation'
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # Request/Response Wrappers
+    RouteMapResponse:
+      type: object
+      required:
+        - routes
+      properties:
+        routes:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+              pattern: '^[A-Z]{3}$'
+          description: Map of origin airport codes to valid destination codes
+          example:
+            JED:
+              - RUH
+              - DMM
+              - MED
+            RUH:
+              - JED
+              - DMM
+
+    StationsResponse:
+      type: object
+      required:
+        - stations
+      properties:
+        stations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Station'
+
+    FlightSearchRequest:
+      type: object
+      required:
+        - origin
+        - destination
+        - departureDate
+        - passengers
+      properties:
+        origin:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: IATA airport code for departure
+          example: JED
+        destination:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: IATA airport code for arrival
+          example: RUH
+        departureDate:
+          type: string
+          format: date
+          description: Travel date in ISO-8601 format
+          example: '2025-12-15'
+        passengers:
+          $ref: '#/components/schemas/PassengerCounts'
+
+    FlightResponse:
+      type: object
+      required:
+        - flights
+        - searchId
+      properties:
+        flights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Flight'
+        searchId:
+          type: string
+          format: uuid
+          description: Unique search session identifier
+
+    BookingRequest:
+      type: object
+      required:
+        - searchId
+        - flightNumber
+        - fareFamily
+        - passengers
+        - contactEmail
+        - payment
+      properties:
+        searchId:
+          type: string
+          format: uuid
+          description: Search session ID from flight search
+        flightNumber:
+          type: string
+          pattern: '^[A-Z]{2}[0-9]{3,4}$'
+          description: Selected flight number
+          example: F3101
+        fareFamily:
+          $ref: '#/components/schemas/FareFamilyCode'
+        passengers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Passenger'
+          minItems: 1
+          maxItems: 9
+        ancillaries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ancillary'
+          default: []
+        contactEmail:
+          type: string
+          format: email
+          description: Email for booking confirmation delivery
+          example: traveler@example.com
+        payment:
+          $ref: '#/components/schemas/PaymentDetails'
+
+    BookingConfirmation:
+      type: object
+      required:
+        - pnr
+        - bookingReference
+        - flight
+        - passengers
+        - totalPaid
+        - createdAt
+      properties:
+        pnr:
+          type: string
+          pattern: '^[A-Z0-9]{6}$'
+          description: 6-character Passenger Name Record code
+          example: ABC123
+        bookingReference:
+          type: string
+          format: uuid
+          description: Internal booking reference
+        flight:
+          $ref: '#/components/schemas/FlightSummary'
+        passengers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassengerSummary'
+        totalPaid:
+          $ref: '#/components/schemas/Money'
+        createdAt:
+          type: string
+          format: date-time
+          description: Booking creation timestamp
+
+    # Core Models
+    Station:
+      type: object
+      required:
+        - code
+        - name
+        - city
+        - country
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: IATA airport code
+          example: JED
+        name:
+          type: string
+          description: Full airport name
+          example: King Abdulaziz International Airport
+        city:
+          type: string
+          description: City name
+          example: Jeddah
+        country:
+          type: string
+          description: Country name
+          example: Saudi Arabia
+
+    PassengerCounts:
+      type: object
+      required:
+        - adults
+        - children
+        - infants
+      properties:
+        adults:
+          type: integer
+          minimum: 1
+          maximum: 9
+          description: Passengers 12+ years
+          example: 2
+        children:
+          type: integer
+          minimum: 0
+          maximum: 8
+          description: Passengers 2-11 years
+          example: 1
+        infants:
+          type: integer
+          minimum: 0
+          maximum: 9
+          description: Passengers 0-1 years (must not exceed adults)
+          example: 0
+
+    Flight:
+      type: object
+      required:
+        - flightNumber
+        - origin
+        - destination
+        - departureTime
+        - arrivalTime
+        - durationMinutes
+        - aircraft
+        - fareFamilies
+      properties:
+        flightNumber:
+          type: string
+          pattern: '^[A-Z]{2}[0-9]{3,4}$'
+          example: F3101
+        origin:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        destination:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        departureTime:
+          type: string
+          format: date-time
+          description: Scheduled departure time (UTC)
+        arrivalTime:
+          type: string
+          format: date-time
+          description: Scheduled arrival time (UTC)
+        durationMinutes:
+          type: integer
+          minimum: 1
+          description: Flight duration in minutes
+          example: 90
+        aircraft:
+          type: string
+          description: Aircraft type
+          example: A320
+        fareFamilies:
+          type: array
+          items:
+            $ref: '#/components/schemas/FareFamily'
+          minItems: 3
+          maxItems: 3
+
+    FareFamily:
+      type: object
+      required:
+        - code
+        - name
+        - price
+        - inclusions
+      properties:
+        code:
+          $ref: '#/components/schemas/FareFamilyCode'
+        name:
+          type: string
+          description: Display name
+          example: Fly+
+        price:
+          $ref: '#/components/schemas/Money'
+        inclusions:
+          $ref: '#/components/schemas/FareInclusions'
+
+    FareFamilyCode:
+      type: string
+      enum:
+        - FLY
+        - FLY_PLUS
+        - FLY_MAX
+      description: Fare family identifier
+
+    FareInclusions:
+      type: object
+      required:
+        - carryOnBag
+        - seatSelection
+        - changePolicy
+        - cancellationPolicy
+        - priorityBoarding
+        - loungeAccess
+      properties:
+        carryOnBag:
+          $ref: '#/components/schemas/BagAllowance'
+        checkedBag:
+          $ref: '#/components/schemas/BagAllowance'
+        seatSelection:
+          $ref: '#/components/schemas/SeatSelectionType'
+        changePolicy:
+          $ref: '#/components/schemas/ChangePolicy'
+        cancellationPolicy:
+          $ref: '#/components/schemas/CancellationPolicy'
+        priorityBoarding:
+          type: boolean
+        loungeAccess:
+          type: boolean
+
+    BagAllowance:
+      type: object
+      required:
+        - pieces
+        - weightKg
+      properties:
+        pieces:
+          type: integer
+          minimum: 0
+          example: 1
+        weightKg:
+          type: integer
+          minimum: 0
+          example: 20
+
+    SeatSelectionType:
+      type: string
+      enum:
+        - NONE
+        - STANDARD
+        - PREMIUM
+
+    ChangePolicy:
+      type: object
+      required:
+        - allowed
+      properties:
+        allowed:
+          type: boolean
+        feeAmount:
+          $ref: '#/components/schemas/Money'
+
+    CancellationPolicy:
+      type: object
+      required:
+        - allowed
+        - refundPercentage
+      properties:
+        allowed:
+          type: boolean
+        refundPercentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 50
+
+    Passenger:
+      type: object
+      required:
+        - type
+        - title
+        - firstName
+        - lastName
+        - nationality
+        - dateOfBirth
+        - documentId
+      properties:
+        type:
+          $ref: '#/components/schemas/PassengerType'
+        title:
+          $ref: '#/components/schemas/Title'
+        firstName:
+          type: string
+          minLength: 2
+          maxLength: 50
+          pattern: '^[A-Za-z\s\-]+$'
+          example: Mohammed
+        lastName:
+          type: string
+          minLength: 2
+          maxLength: 50
+          pattern: '^[A-Za-z\s\-]+$'
+          example: Al-Rashid
+        nationality:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          description: ISO 3166-1 alpha-2 country code
+          example: SA
+        dateOfBirth:
+          type: string
+          format: date
+          example: '1990-05-15'
+        documentId:
+          type: string
+          minLength: 5
+          maxLength: 20
+          pattern: '^[A-Za-z0-9]+$'
+          description: Passport or ID number
+          example: A12345678
+
+    PassengerType:
+      type: string
+      enum:
+        - ADULT
+        - CHILD
+        - INFANT
+      description: |
+        Passenger age category:
+        - ADULT: 12+ years
+        - CHILD: 2-11 years
+        - INFANT: 0-1 years (under 2)
+
+    Title:
+      type: string
+      enum:
+        - MR
+        - MRS
+        - MS
+        - MISS
+        - MSTR
+      description: Passenger salutation (MSTR for children)
+
+    Ancillary:
+      type: object
+      required:
+        - type
+        - passengerIndex
+        - price
+      properties:
+        type:
+          $ref: '#/components/schemas/AncillaryType'
+        passengerIndex:
+          type: integer
+          minimum: 0
+          description: Index of passenger this ancillary applies to
+        price:
+          $ref: '#/components/schemas/Money'
+
+    AncillaryType:
+      type: string
+      enum:
+        - CHECKED_BAG
+      description: Available ancillary service types
+
+    PaymentDetails:
+      type: object
+      required:
+        - cardholderName
+        - cardNumberLast4
+        - totalAmount
+      properties:
+        cardholderName:
+          type: string
+          minLength: 1
+          description: Name as it appears on card
+          example: Mohammed Al-Rashid
+        cardNumberLast4:
+          type: string
+          pattern: '^[0-9]{4}$'
+          description: Last 4 digits of card number (for receipt)
+          example: '4242'
+        totalAmount:
+          $ref: '#/components/schemas/Money'
+
+    FlightSummary:
+      type: object
+      required:
+        - flightNumber
+        - origin
+        - destination
+        - departureTime
+        - fareFamily
+      properties:
+        flightNumber:
+          type: string
+        origin:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        destination:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        departureTime:
+          type: string
+          format: date-time
+        fareFamily:
+          $ref: '#/components/schemas/FareFamilyCode'
+
+    PassengerSummary:
+      type: object
+      required:
+        - fullName
+        - type
+      properties:
+        fullName:
+          type: string
+          description: Formatted full name (Title FirstName LastName)
+          example: Mr Mohammed Al-Rashid
+        type:
+          $ref: '#/components/schemas/PassengerType'
+
+    Money:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          example: 450.00
+        currency:
+          $ref: '#/components/schemas/Currency'
+
+    Currency:
+      type: string
+      enum:
+        - SAR
+        - USD
+        - EUR
+      description: ISO 4217 currency code
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - timestamp
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: INVALID_REQUEST
+        message:
+          type: string
+          description: Human-readable error message
+          example: Origin and destination cannot be the same
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties:
+            type: string
+          description: Field-specific validation errors
+          example:
+            origin: Invalid airport code
+            departureDate: Date must be in the future

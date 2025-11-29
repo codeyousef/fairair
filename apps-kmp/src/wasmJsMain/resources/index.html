@@ -50,19 +50,30 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Hide loading when canvas is ready */
-        #ComposeTarget:not(:empty) ~ .loading {
+        .loading.hidden {
             display: none;
         }
     </style>
 </head>
 <body>
     <canvas id="ComposeTarget"></canvas>
-    <div class="loading">
+    <div class="loading" id="loadingScreen">
         <h1>flyadeal</h1>
         <div class="spinner"></div>
         <p>Loading application...</p>
     </div>
+    <script>
+        // Hide loading screen when Skiko starts rendering
+        window.onComposeReady = function() {
+            document.getElementById('loadingScreen').classList.add('hidden');
+        };
+    </script>
     <script src="apps-kmp.js"></script>
+    <script>
+        // Fallback: hide after app script loads and a short delay
+        setTimeout(function() {
+            document.getElementById('loadingScreen').classList.add('hidden');
+        }, 500);
+    </script>
 </body>
 </html>

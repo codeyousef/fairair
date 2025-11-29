@@ -6,12 +6,14 @@ import com.flyadeal.app.api.*
 import com.flyadeal.app.state.BookingFlowState
 import com.flyadeal.app.util.toDisplayMessage
 import com.flyadeal.app.state.SearchCriteria
+import com.flyadeal.app.ui.components.velocity.DestinationTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -26,6 +28,9 @@ class SearchScreenModel(
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+
+    private val _velocityState = MutableStateFlow(VelocitySearchState())
+    val velocityState: StateFlow<VelocitySearchState> = _velocityState.asStateFlow()
 
     init {
         loadInitialData()
@@ -51,15 +56,30 @@ class SearchScreenModel(
                             departureDate = getDefaultDate()
                         )
                     }
+                    // Also update Velocity state
+                    _velocityState.update {
+                        it.copy(
+                            isLoading = false,
+                            availableOrigins = stationsResult.data,
+                            routeMap = routesResult.data.routes
+                        )
+                    }
                 }
                 stationsResult is ApiResult.Error -> {
                     _uiState.update {
                         it.copy(isLoading = false, error = stationsResult.toDisplayMessage())
                     }
+                    _velocityState.update {
+                        it.copy(isLoading = false, error = stationsResult.toDisplayMessage())
+                    }
                 }
                 routesResult is ApiResult.Error -> {
+                    val errorMessage = (routesResult as ApiResult.Error).toDisplayMessage()
                     _uiState.update {
-                        it.copy(isLoading = false, error = (routesResult as ApiResult.Error).toDisplayMessage())
+                        it.copy(isLoading = false, error = errorMessage)
+                    }
+                    _velocityState.update {
+                        it.copy(isLoading = false, error = errorMessage)
                     }
                 }
             }
@@ -253,12 +273,14 @@ class SearchScreenModel(
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+        _velocityState.update { it.copy(error = null) }
     }
 
     /**
      * Retries loading initial data.
      */
     fun retry() {
+        _velocityState.update { it.copy(isLoading = true, error = null) }
         loadInitialData()
     }
 
@@ -269,6 +291,132 @@ class SearchScreenModel(
         val now = Clock.System.now()
         val tomorrow = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
         return tomorrow.toString()
+    }
+
+    // ============================================================================
+    // Velocity UI Methods
+    // ============================================================================
+
+    /**
+     * Sets the active field for the Velocity sentence builder UI.
+     * Pass null to dismiss any open selection sheet.
+     */
+    fun setActiveField(field: SearchField?) {
+        _velocityState.update { it.copy(activeField = field) }
+    }
+
+    /**
+     * Selects an origin airport (Velocity UI).
+     */
+    fun selectVelocityOrigin(station: StationDto) {
+        _velocityState.update { state ->
+            val validDestinationCodes = state.routeMap[station.code] ?: emptyList()
+            val availableDestinations = state.availableOrigins.filter { it.code in validDestinationCodes }
+
+            // If current destination is not in the new valid destinations list, clear it
+            val currentDestination = state.selectedDestination
+            val newDestination = if (currentDestination != null &&
+                validDestinationCodes.contains(currentDestination.code)) {
+                currentDestination
+            } else {
+                null
+            }
+
+            state.copy(
+                selectedOrigin = station,
+                selectedDestination = newDestination,
+                availableDestinations = availableDestinations,
+                // Clear destination background if destination was cleared
+                destinationBackground = if (newDestination != null) state.destinationBackground else null
+            )
+        }
+        // Also update legacy state for compatibility
+        selectOrigin(station)
+    }
+
+    /**
+     * Selects a destination airport (Velocity UI).
+     */
+    fun selectVelocityDestination(station: StationDto) {
+        _velocityState.update { state ->
+            state.copy(
+                selectedDestination = station,
+                destinationBackground = DestinationTheme.forDestination(station.code)
+            )
+        }
+        // Also update legacy state for compatibility
+        selectDestination(station)
+    }
+
+    /**
+     * Selects a departure date (Velocity UI).
+     */
+    fun selectVelocityDate(date: LocalDate) {
+        _velocityState.update { it.copy(departureDate = date) }
+        // Also update legacy state for compatibility
+        setDepartureDate(date.toString())
+    }
+
+    /**
+     * Updates passenger count (Velocity UI).
+     * For now, Velocity UI only supports adult passengers.
+     */
+    fun setVelocityPassengerCount(count: Int) {
+        _velocityState.update { it.copy(passengerCount = count.coerceIn(1, 9)) }
+        // Also update legacy state for compatibility
+        updatePassengers(count, 0, 0)
+    }
+
+    /**
+     * Initiates flight search from Velocity UI.
+     */
+    fun searchFromVelocity(onSearchComplete: () -> Unit) {
+        val state = _velocityState.value
+        val origin = state.selectedOrigin ?: return
+        val destination = state.selectedDestination ?: return
+        val date = state.departureDate ?: return
+
+        screenModelScope.launch {
+            _velocityState.update { it.copy(isSearching = true, error = null) }
+            _uiState.update { it.copy(isSearching = true, error = null) }
+
+            val request = FlightSearchRequestDto(
+                origin = origin.code,
+                destination = destination.code,
+                departureDate = date.toString(),
+                passengers = PassengerCountsDto(
+                    adults = state.passengerCount,
+                    children = 0,
+                    infants = 0
+                )
+            )
+
+            when (val result = apiClient.searchFlights(request)) {
+                is ApiResult.Success -> {
+                    bookingFlowState.setSearchCriteria(
+                        SearchCriteria(
+                            origin = origin,
+                            destination = destination,
+                            departureDate = date.toString(),
+                            passengers = request.passengers
+                        )
+                    )
+                    bookingFlowState.setSearchResult(result.data)
+                    _velocityState.update { it.copy(isSearching = false) }
+                    _uiState.update { it.copy(isSearching = false) }
+                    onSearchComplete()
+                }
+                is ApiResult.Error -> {
+                    val errorMessage = result.toDisplayMessage()
+                    _velocityState.update {
+                        it.copy(isSearching = false, error = errorMessage)
+                    }
+                    _uiState.update {
+                        it.copy(isSearching = false, error = errorMessage)
+                    }
+                }
+            }
+        }
     }
 }
 

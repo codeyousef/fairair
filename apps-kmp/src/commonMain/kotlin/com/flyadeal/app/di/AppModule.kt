@@ -38,10 +38,13 @@ class DefaultPlatformConfig(
 ) : PlatformConfig
 
 /**
- * Main application Koin module.
+ * Creates the main application Koin module.
  * Contains all dependency definitions.
+ *
+ * This is a function (not a val) to ensure it's not initialized before
+ * any platform-specific polyfills are installed (e.g., crypto.randomUUID for Wasm).
  */
-val appModule = module {
+fun createAppModule() = module {
     // Platform config - can be overridden by platform-specific modules
     single<PlatformConfig> { DefaultPlatformConfig() }
 
@@ -67,10 +70,13 @@ val appModule = module {
 }
 
 /**
- * ScreenModel module for Voyager screens.
+ * Creates the ScreenModel module for Voyager screens.
  * Uses factory to create new instances per screen.
+ *
+ * This is a function (not a val) to ensure it's not initialized before
+ * any platform-specific polyfills are installed.
  */
-val screenModelModule = module {
+fun createScreenModelModule() = module {
     // Search Screen Model
     factory {
         SearchScreenModel(
@@ -127,7 +133,10 @@ val screenModelModule = module {
 /**
  * Creates the list of Koin modules for the application.
  * Platform-specific modules can be added here.
+ *
+ * IMPORTANT: This must only be called after any required polyfills are installed
+ * (e.g., crypto.randomUUID for Wasm).
  */
 fun appModules(platformModule: org.koin.core.module.Module? = null): List<org.koin.core.module.Module> {
-    return listOfNotNull(appModule, screenModelModule, platformModule)
+    return listOfNotNull(createAppModule(), createScreenModelModule(), platformModule)
 }

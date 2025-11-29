@@ -102,6 +102,14 @@ class ResultsScreenModel(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+
+    /**
+     * Retries loading search results.
+     */
+    fun retry() {
+        _uiState.update { it.copy(isLoading = true, error = null) }
+        loadSearchResults()
+    }
 }
 
 /**

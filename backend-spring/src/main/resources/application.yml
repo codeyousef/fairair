@@ -38,7 +38,7 @@ logging:
     root: INFO
     com.flyadeal: DEBUG
   pattern:
-    console: "%d{HH:mm:ss} %-5level [%logger{2}] (%thread) %msg%n"
+    console: "%d{HH:mm:ss} %-5level [%logger{36}] - %msg%n"
 
 ---
 spring:
