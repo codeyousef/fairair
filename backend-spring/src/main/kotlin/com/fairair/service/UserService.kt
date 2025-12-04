@@ -19,16 +19,17 @@ class UserService {
         // Create 3 demo users
         val hashedPassword = passwordEncoder.encode("password")
         
-        users["john.smith@fairair.com"] = DemoUser(
+        // Use lowercase keys for consistent lookup
+        users["employee@fairair.com".lowercase()] = DemoUser(
             id = "user-001",
-            email = "john.smith@fairair.com",
+            email = "employee@fairair.com",
             password = hashedPassword,
             firstName = "John",
             lastName = "Smith",
             role = UserRole.EMPLOYEE
         )
         
-        users["jane@test.com"] = DemoUser(
+        users["jane@test.com".lowercase()] = DemoUser(
             id = "user-002",
             email = "jane@test.com",
             password = hashedPassword,
@@ -37,7 +38,7 @@ class UserService {
             role = UserRole.USER
         )
         
-        users["admin@test.com"] = DemoUser(
+        users["admin@test.com".lowercase()] = DemoUser(
             id = "user-003",
             email = "admin@test.com",
             password = hashedPassword,

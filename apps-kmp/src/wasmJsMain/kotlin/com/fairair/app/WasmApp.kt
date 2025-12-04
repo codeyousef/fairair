@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -29,8 +30,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.fairair.app.api.FairairApiClient
+import kotlinx.browser.window
 import com.fairair.app.api.FlightDto
-import com.fairair.app.api.UserInfoDto
+import com.fairair.contract.dto.UserInfoDto
 import com.fairair.app.localization.AppLanguage
 import com.fairair.app.localization.LocalizationProvider
 import com.fairair.app.localization.LocalizationState
@@ -93,9 +95,54 @@ private fun WasmAppContent() {
     val localizationState = rememberLocalizationState()
     val scope = rememberCoroutineScope()
 
-    // Navigation state
-    var currentScreen by remember { mutableStateOf(WasmScreen.LANDING) }
+    // Parse initial screen from URL hash
+    fun parseScreenFromHash(): WasmScreen {
+        val hash = window.location.hash.removePrefix("#")
+        return when (hash) {
+            "search" -> WasmScreen.SEARCH
+            "results" -> WasmScreen.RESULTS
+            "passengers" -> WasmScreen.PASSENGERS
+            "payment" -> WasmScreen.PAYMENT
+            "confirmation" -> WasmScreen.CONFIRMATION
+            "settings" -> WasmScreen.SETTINGS
+            "bookings" -> WasmScreen.SAVED_BOOKINGS
+            "login" -> WasmScreen.LOGIN
+            else -> WasmScreen.LANDING
+        }
+    }
+    
+    // Navigation state - initialized from URL hash
+    var currentScreen by remember { mutableStateOf(parseScreenFromHash()) }
     var previousScreen by remember { mutableStateOf(WasmScreen.LANDING) }
+    
+    // Update URL hash when screen changes
+    LaunchedEffect(currentScreen) {
+        val hash = when (currentScreen) {
+            WasmScreen.LANDING -> ""
+            WasmScreen.SEARCH -> "search"
+            WasmScreen.RESULTS -> "results"
+            WasmScreen.PASSENGERS -> "passengers"
+            WasmScreen.PAYMENT -> "payment"
+            WasmScreen.CONFIRMATION -> "confirmation"
+            WasmScreen.SETTINGS -> "settings"
+            WasmScreen.SAVED_BOOKINGS -> "bookings"
+            WasmScreen.LOGIN -> "login"
+        }
+        if (window.location.hash != "#$hash") {
+            window.history.pushState(null, "", if (hash.isEmpty()) "/" else "#$hash")
+        }
+    }
+    
+    // Handle browser back/forward buttons
+    DisposableEffect(Unit) {
+        val callback: (org.w3c.dom.events.Event) -> Unit = {
+            currentScreen = parseScreenFromHash()
+        }
+        window.addEventListener("hashchange", callback)
+        onDispose {
+            window.removeEventListener("hashchange", callback)
+        }
+    }
     
     // User state - tracks logged in user and auth token
     var currentUser by remember { mutableStateOf<UserInfoDto?>(null) }
@@ -110,9 +157,10 @@ private fun WasmAppContent() {
         WasmBookingViewModel(apiClient, bookingFlowState, scope)
     }
 
-    // Wrap in localization provider
+    // Wrap in localization provider and SelectionContainer for text selection
     LocalizationProvider(localizationState) {
         VelocityTheme(isRtl = localizationState.isRtl) {
+            SelectionContainer {
             when (currentScreen) {
                 WasmScreen.LANDING -> {
                     LandingScreen(
@@ -218,6 +266,7 @@ private fun WasmAppContent() {
                 )
             }
         }
+            }
         }
     }
 }
@@ -1995,7 +2044,7 @@ private fun WasmLoginScreen(
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
-                    DemoUserRow("Employee", "john.smith@fairair.com")
+                    DemoUserRow("Employee", "employee@fairair.com")
                     DemoUserRow("User", "jane@test.com")
                     DemoUserRow("Admin", "admin@test.com")
                     

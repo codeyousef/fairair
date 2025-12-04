@@ -46,7 +46,9 @@ fun FareGrid(
     ) {
         // Regular fare options
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             fareFamilies.forEach { fare ->
@@ -54,7 +56,7 @@ fun FareGrid(
                     fare = fare,
                     isSelected = selectedFare?.id == fare.id,
                     onClick = { onFareSelect(fare) },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
         }
@@ -89,15 +91,17 @@ fun StandbyTile(
                 color = VelocityColors.Warning,
                 shape = shape
             )
-            .background(VelocityColors.Warning.copy(alpha = 0.15f))
+            .background(VelocityColors.Warning.copy(alpha = 0.1f))
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
             Text(
-                text = "✈️ Employee Standby",
+                text = "✈ Employee Standby",
                 style = typography.body,
                 color = VelocityColors.Warning
             )
@@ -108,14 +112,26 @@ fun StandbyTile(
             )
         }
         
+        Spacer(modifier = Modifier.width(16.dp))
+        
         Column(
             horizontalAlignment = Alignment.End
         ) {
-            Text(
-                text = "SAR 100",
-                style = typography.priceDisplay,
-                color = VelocityColors.Warning
-            )
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "SAR ",
+                    style = typography.duration,
+                    color = VelocityColors.Warning
+                )
+                Text(
+                    text = "100",
+                    style = typography.priceDisplay,
+                    color = VelocityColors.Warning
+                )
+            }
             Text(
                 text = "Fixed rate",
                 style = typography.labelSmall,
@@ -160,7 +176,7 @@ fun FareTile(
             )
             .background(backgroundColor)
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(horizontal = 8.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -169,7 +185,8 @@ fun FareTile(
             text = fare.displayName,
             style = typography.labelSmall,
             color = if (isSelected) VelocityColors.Accent else VelocityColors.TextMuted,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1
         )
 
         // Price
@@ -177,7 +194,8 @@ fun FareTile(
             text = fare.price.formatAmount(),
             style = typography.body,
             color = if (isSelected) VelocityColors.Accent else VelocityColors.TextMain,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1
         )
 
         // Currency
@@ -185,7 +203,8 @@ fun FareTile(
             text = fare.price.currency.name,
             style = typography.labelSmall,
             color = VelocityColors.TextMuted,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1
         )
     }
 }

@@ -1,6 +1,9 @@
 package com.fairair.app.api
 
 import com.fairair.contract.api.ApiRoutes
+import com.fairair.contract.dto.LoginRequestDto
+import com.fairair.contract.dto.LoginResponseDto
+import com.fairair.contract.dto.UserInfoDto
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
@@ -124,7 +127,7 @@ class FairairApiClient(
      */
     suspend fun login(email: String, password: String): Result<LoginResponseDto> {
         return try {
-            val response = httpClient.post("$baseUrl/api/v1/auth/login") {
+            val response = httpClient.post("$baseUrl${ApiRoutes.Auth.LOGIN}") {
                 contentType(ContentType.Application.Json)
                 setBody(LoginRequestDto(email, password))
             }
@@ -145,7 +148,7 @@ class FairairApiClient(
      */
     suspend fun getMyBookings(authToken: String): ApiResult<List<BookingConfirmationDto>> {
         return safeApiCall {
-            httpClient.get("$baseUrl/api/v1/booking/user/me") {
+            httpClient.get("$baseUrl${ApiRoutes.Booking.USER_BOOKINGS}") {
                 header(HttpHeaders.Authorization, "Bearer $authToken")
             }.body()
         }
@@ -392,28 +395,8 @@ sealed class ApiResult<out T> {
     }
 }
 
-// DTO classes for API communication - matches backend response format
-
-@Serializable
-data class LoginRequestDto(
-    val email: String,
-    val password: String
-)
-
-@Serializable
-data class LoginResponseDto(
-    val token: String,
-    val expiresIn: Long = 86400000,
-    val user: UserInfoDto? = null
-)
-
-@Serializable
-data class UserInfoDto(
-    val email: String,
-    val firstName: String,
-    val lastName: String,
-    val role: String
-)
+// DTO classes for API communication
+// Auth DTOs are imported from com.fairair.contract.dto
 
 @Serializable
 data class RouteMapDto(

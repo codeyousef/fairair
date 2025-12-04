@@ -17,6 +17,36 @@ object ApiRoutes {
     const val BASE_PATH = "/api/$API_VERSION"
 
     /**
+     * Authentication endpoints.
+     */
+    object Auth {
+        /**
+         * Base path for auth endpoints.
+         */
+        const val BASE = "$BASE_PATH/auth"
+
+        /**
+         * POST: Login with email and password.
+         * Request: LoginRequestDto
+         * Response: LoginResponseDto
+         */
+        const val LOGIN = "$BASE/login"
+
+        /**
+         * POST: Refresh access token.
+         * Request: RefreshTokenRequestDto
+         * Response: LoginResponseDto
+         */
+        const val REFRESH = "$BASE/refresh"
+
+        /**
+         * POST: Logout current user.
+         * Response: LogoutResponseDto
+         */
+        const val LOGOUT = "$BASE/logout"
+    }
+
+    /**
      * Configuration endpoints for static/cached data.
      */
     object Config {
@@ -87,6 +117,13 @@ object ApiRoutes {
          * @return The full API path
          */
         fun byPnr(pnr: String): String = "$BASE/$pnr"
+
+        /**
+         * GET: Retrieve all bookings for the authenticated user.
+         * Response: List<BookingConfirmationDto>
+         * Requires: Authorization header with Bearer token
+         */
+        const val USER_BOOKINGS = "$BASE/user/me"
     }
 
     /**
