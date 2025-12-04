@@ -55,12 +55,12 @@ class AuthController(
         
         log.info("Login successful for user: ${user.id} (${user.email}) - Role: ${user.role}")
         
-        return ResponseEntity.ok(LoginResponseDto(
+        return ResponseEntity.ok(LoginResponse(
             accessToken = accessToken,
             refreshToken = refreshToken,
             tokenType = "Bearer",
             expiresIn = 900, // 15 minutes in seconds
-            user = UserInfoDto(
+            user = UserInfo(
                 id = user.id,
                 email = user.email,
                 firstName = user.firstName,
@@ -94,7 +94,7 @@ class AuthController(
                 
                 log.debug("Token refreshed for user: ${result.userId}")
                 
-                ResponseEntity.ok(LoginResponseDto(
+                ResponseEntity.ok(LoginResponse(
                     accessToken = newAccessToken,
                     refreshToken = newRefreshToken,
                     tokenType = "Bearer",
@@ -131,3 +131,26 @@ class AuthController(
         return email.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"))
     }
 }
+
+/**
+ * JVM-specific login response DTO for proper Jackson serialization.
+ * All fields are required (no defaults) to ensure they're always serialized.
+ */
+data class LoginResponse(
+    val accessToken: String,
+    val refreshToken: String,
+    val tokenType: String,
+    val expiresIn: Long,
+    val user: UserInfo? = null
+)
+
+/**
+ * JVM-specific user info DTO for proper Jackson serialization.
+ */
+data class UserInfo(
+    val id: String,
+    val email: String,
+    val firstName: String,
+    val lastName: String,
+    val role: String
+)

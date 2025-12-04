@@ -162,7 +162,7 @@ class MockNavitaireClient(
         )
 
         // Persist to database
-        val entity = BookingEntity(
+        val entity = BookingEntity.create(
             pnr = pnr.value,
             bookingReference = confirmation.bookingReference,
             userId = userId,

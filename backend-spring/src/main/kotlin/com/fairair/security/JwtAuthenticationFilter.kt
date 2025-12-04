@@ -36,10 +36,12 @@ class JwtAuthenticationFilter(
             "/actuator/health",
             "/api/v1/auth/login",
             "/api/v1/auth/refresh",
+            "/api/v1/auth/logout",
             "/api/v1/config/stations",
             "/api/v1/config/routes",
             "/api/v1/config/route-map",
             "/api/v1/search",
+            "/api/v1/search/low-fares",
             "/api/v1/booking"
         )
         
@@ -47,7 +49,10 @@ class JwtAuthenticationFilter(
          * Path prefixes that don't require authentication
          */
         private val PUBLIC_PATH_PREFIXES = setOf(
-            "/actuator/"
+            "/actuator/",
+            "/api/v1/config/destinations/",
+            "/api/v1/config/",
+            "/api/v1/booking/"  // Booking retrieval by PNR is public
         )
         
         /**

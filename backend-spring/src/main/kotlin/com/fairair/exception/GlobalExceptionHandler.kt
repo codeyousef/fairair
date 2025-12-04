@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.server.ServerWebInputException
+import org.springframework.web.server.UnsupportedMediaTypeStatusException
 import java.time.Instant
 
 /**
@@ -79,6 +80,23 @@ class GlobalExceptionHandler {
 
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
+            .body(errorResponse)
+    }
+    
+    /**
+     * Handle unsupported media type errors.
+     */
+    @ExceptionHandler(UnsupportedMediaTypeStatusException::class)
+    fun handleUnsupportedMediaTypeException(ex: UnsupportedMediaTypeStatusException): ResponseEntity<ErrorResponse> {
+        log.warn("Unsupported media type: ${ex.message}")
+
+        val errorResponse = ErrorResponse(
+            error = "UNSUPPORTED_MEDIA_TYPE",
+            message = "Content type not supported. Use application/json."
+        )
+
+        return ResponseEntity
+            .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
             .body(errorResponse)
     }
 
