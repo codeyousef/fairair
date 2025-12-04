@@ -3,8 +3,6 @@ package com.fairair.app.ui.theme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.text.selection.DisableSelection
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -109,16 +107,4 @@ object VelocityTheme {
     val typography: VelocityTypography
         @Composable
         get() = LocalVelocityTypography.current
-}
-
-/**
- * Wrapper to disable text selection for interactive/clickable content.
- * Use this around buttons, clickable cards, and other interactive elements
- * to prevent the text cursor from appearing on hover.
- */
-@Composable
-fun NonSelectableContent(content: @Composable () -> Unit) {
-    DisableSelection {
-        content()
-    }
 }

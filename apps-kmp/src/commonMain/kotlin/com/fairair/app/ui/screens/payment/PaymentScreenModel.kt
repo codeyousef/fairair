@@ -215,9 +215,7 @@ class PaymentScreenModel(
                         lastName = p.lastName,
                         dateOfBirth = p.dateOfBirth,
                         nationality = p.nationality,
-                        documentType = p.documentType,
-                        documentNumber = p.documentNumber,
-                        documentExpiry = p.documentExpiry
+                        documentId = p.documentNumber
                     )
                 },
                 contactEmail = passengers.firstOrNull()?.email ?: "",
@@ -225,7 +223,7 @@ class PaymentScreenModel(
                 payment = PaymentDto(
                     cardholderName = state.cardholderName,
                     cardNumberLast4 = state.cardNumber.takeLast(4),
-                    totalAmountMinor = (state.totalPrice.toDoubleOrNull() ?: 0.0).toLong() * 100,
+                    totalAmountMinor = ((state.totalPrice.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0) * 100).toLong(),
                     currency = "SAR"
                 )
             )

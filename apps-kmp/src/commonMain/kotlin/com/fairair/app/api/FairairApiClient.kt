@@ -456,6 +456,7 @@ data class FlightDto(
     val fares: List<FareDto> get() = fareFamilies.map { ff ->
         FareDto(
             fareFamily = ff.name,
+            fareFamilyCode = ff.code,
             basePrice = ff.priceFormatted,
             totalPrice = ff.priceFormatted,
             currency = ff.currency,
@@ -507,6 +508,7 @@ data class FareInclusionsDto(
 @Serializable
 data class FareDto(
     val fareFamily: String,
+    val fareFamilyCode: String = "",
     val basePrice: String = "0",
     val totalPrice: String = "0",
     val currency: String = "SAR",
@@ -533,9 +535,7 @@ data class PassengerDto(
     val lastName: String,
     val dateOfBirth: String,
     val nationality: String = "",
-    val documentType: String = "",
-    val documentNumber: String = "",
-    val documentExpiry: String = ""
+    val documentId: String = ""
 )
 
 @Serializable
@@ -555,9 +555,26 @@ data class PaymentDto(
 )
 
 @Serializable
+data class FlightSummaryDto(
+    val flightNumber: String,
+    val origin: String,
+    val destination: String,
+    val departureTime: String,
+    val fareFamily: String
+)
+
+@Serializable
+data class PassengerSummaryDto(
+    val fullName: String,
+    val type: String
+)
+
+@Serializable
 data class BookingConfirmationDto(
-    val pnr: String,
+    val pnr: String = "",
     val bookingReference: String = "",
+    val flight: FlightSummaryDto? = null,
+    val passengers: List<PassengerSummaryDto> = emptyList(),
     val status: String = "CONFIRMED",
     val totalPaidMinor: Long = 0,
     val totalPaidFormatted: String = "0",

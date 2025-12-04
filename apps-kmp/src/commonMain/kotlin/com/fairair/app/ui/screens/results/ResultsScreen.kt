@@ -274,8 +274,8 @@ private fun FlightCard(
                 flight.fares.forEach { fare ->
                     FareOption(
                         fare = fare,
-                        isSelected = selectedFareFamily == fare.fareFamily,
-                        onClick = { onSelectFare(fare.fareFamily, fare.totalPrice) },
+                        isSelected = selectedFareFamily == fare.fareFamilyCode || selectedFareFamily == fare.fareFamily,
+                        onClick = { onSelectFare(fare.fareFamilyCode.ifEmpty { fare.fareFamily }, fare.totalPrice) },
                         modifier = Modifier.weight(1f)
                     )
                 }

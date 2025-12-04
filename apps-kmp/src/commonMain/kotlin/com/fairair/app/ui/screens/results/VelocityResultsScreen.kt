@@ -74,7 +74,7 @@ class VelocityResultsScreen : Screen, AppScreen.Results {
                             if (flight != null && flight.fares.isNotEmpty()) {
                                 // Toggle expansion or select first fare
                                 val defaultFare = flight.fares.first()
-                                screenModel.selectFlight(flight, defaultFare.fareFamily, defaultFare.totalPrice)
+                                screenModel.selectFlight(flight, defaultFare.fareFamilyCode.ifEmpty { defaultFare.fareFamily }, defaultFare.totalPrice)
                             }
                         },
                         onFareSelect = { fareFamily ->
@@ -83,7 +83,7 @@ class VelocityResultsScreen : Screen, AppScreen.Results {
                             if (selectedFlight != null) {
                                 val fare = selectedFlight.fares.find { it.fareFamily == fareFamily.displayName }
                                 if (fare != null) {
-                                    screenModel.selectFlight(selectedFlight, fare.fareFamily, fare.totalPrice)
+                                    screenModel.selectFlight(selectedFlight, fare.fareFamilyCode.ifEmpty { fare.fareFamily }, fare.totalPrice)
                                     // Navigate to next screen
                                     screenModel.confirmSelection {
                                         navigator.push(PassengerInfoScreen())

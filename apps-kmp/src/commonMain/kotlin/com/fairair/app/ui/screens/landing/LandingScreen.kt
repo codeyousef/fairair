@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -143,23 +142,22 @@ private fun LandingHeader(
             }
             
             // Nav buttons
-            DisableSelection {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
                 ) {
-                    IconButton(
-                        onClick = onSettingsClick,
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = strings.settings,
-                            tint = VelocityColors.TextMuted
-                        )
-                    }
-                    
-                    if (isLoggedIn) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = strings.settings,
+                        tint = VelocityColors.TextMuted
+                    )
+                }
+                
+                if (isLoggedIn) {
                         // Welcome message
                         Text(
                             text = "${strings.landingWelcome}, $userName",
@@ -211,16 +209,13 @@ private fun LandingHeader(
                             border = BorderStroke(1.dp, VelocityColors.GlassBorder),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text(strings.landingSignIn)
-                        }
+                        Text(strings.landingSignIn)
                     }
                 }
             }
         }
     }
-}
-
-@Composable
+}@Composable
 private fun HeroSection(onFlyNowClick: () -> Unit) {
     val strings = LocalStrings.current
     Box(
@@ -266,28 +261,26 @@ private fun HeroSection(onFlyNowClick: () -> Unit) {
             Spacer(modifier = Modifier.height(40.dp))
             
             // Fly Now Button
-            DisableSelection {
-                Button(
-                    onClick = onFlyNowClick,
-                    modifier = Modifier.height(56.dp).pointerHoverIcon(PointerIcon.Hand),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = VelocityColors.Accent,
-                        contentColor = VelocityColors.BackgroundDeep
-                    ),
-                    shape = RoundedCornerShape(28.dp),
-                    contentPadding = PaddingValues(horizontal = 48.dp)
-                ) {
-                    Text(
-                        text = strings.landingSearchFlights,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null
-                    )
-                }
+            Button(
+                onClick = onFlyNowClick,
+                modifier = Modifier.height(56.dp).pointerHoverIcon(PointerIcon.Hand),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VelocityColors.Accent,
+                    contentColor = VelocityColors.BackgroundDeep
+                ),
+                shape = RoundedCornerShape(28.dp),
+                contentPadding = PaddingValues(horizontal = 48.dp)
+            ) {
+                Text(
+                    text = strings.landingSearchFlights,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null
+                )
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -349,15 +342,14 @@ private fun DealCard(
         "popular" -> strings.landingPopular
         else -> deal.badgeKey
     }
-    DisableSelection {
-        Surface(
-            modifier = Modifier
-                .width(300.dp)
-                .then(if (onClick != null) Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick) else Modifier),
-            shape = RoundedCornerShape(16.dp),
-            color = VelocityColors.BackgroundMid,
-            border = BorderStroke(1.dp, VelocityColors.GlassBorder)
-        ) {
+    Surface(
+        modifier = Modifier
+            .width(300.dp)
+            .then(if (onClick != null) Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick) else Modifier),
+        shape = RoundedCornerShape(16.dp),
+        color = VelocityColors.BackgroundMid,
+        border = BorderStroke(1.dp, VelocityColors.GlassBorder)
+    ) {
             Column(
                 modifier = Modifier.padding(20.dp)
             ) {
@@ -416,7 +408,6 @@ private fun DealCard(
             }
         }
     }
-    }
 }
 
 @Composable
@@ -459,52 +450,50 @@ private fun DestinationCard(
     destination: Destination,
     onClick: (() -> Unit)?
 ) {
-    DisableSelection {
-        Surface(
-            modifier = Modifier
-                .width(140.dp)
-                .then(if (onClick != null) Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick) else Modifier),
-            shape = RoundedCornerShape(12.dp),
-            color = VelocityColors.BackgroundMid,
-            border = BorderStroke(1.dp, VelocityColors.GlassBorder)
+    Surface(
+        modifier = Modifier
+            .width(140.dp)
+            .then(if (onClick != null) Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick) else Modifier),
+        shape = RoundedCornerShape(12.dp),
+        color = VelocityColors.BackgroundMid,
+        border = BorderStroke(1.dp, VelocityColors.GlassBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            // City code in accent circle
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = CircleShape,
+                color = VelocityColors.Accent.copy(alpha = 0.1f)
             ) {
-                // City code in accent circle
-                Surface(
-                    modifier = Modifier.size(56.dp),
-                    shape = CircleShape,
-                    color = VelocityColors.Accent.copy(alpha = 0.1f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = destination.code,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = VelocityColors.Accent,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = destination.code,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = VelocityColors.Accent,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Text(
-                    text = destination.city,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VelocityColors.TextMain,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center
-                )
-                
-                Text(
-                    text = destination.country,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VelocityColors.TextMuted,
-                    textAlign = TextAlign.Center
-                )
             }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = destination.city,
+                style = MaterialTheme.typography.bodyMedium,
+                color = VelocityColors.TextMain,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
+            )
+            
+            Text(
+                text = destination.country,
+                style = MaterialTheme.typography.bodySmall,
+                color = VelocityColors.TextMuted,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -728,14 +717,12 @@ private fun LandingFooter() {
 
 @Composable
 private fun FooterLink(text: String) {
-    DisableSelection {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = VelocityColors.TextMuted,
-            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand).clickable { /* placeholder */ }
-        )
-    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = VelocityColors.TextMuted,
+        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand).clickable { /* placeholder */ }
+    )
 }
 
 // Data classes and sample data

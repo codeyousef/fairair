@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -29,6 +28,8 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.fairair.app.api.FairairApiClient
@@ -83,6 +84,7 @@ private enum class WasmScreen {
     LANDING,
     SEARCH,
     RESULTS,
+    SEAT_SELECTION,
     PASSENGERS,
     PAYMENT,
     CONFIRMATION,
@@ -104,6 +106,7 @@ private fun WasmAppContent() {
         return when (hash) {
             "search" -> WasmScreen.SEARCH
             "results" -> WasmScreen.RESULTS
+            "seats" -> WasmScreen.SEAT_SELECTION
             "passengers" -> WasmScreen.PASSENGERS
             "payment" -> WasmScreen.PAYMENT
             "confirmation" -> WasmScreen.CONFIRMATION
@@ -141,6 +144,7 @@ private fun WasmAppContent() {
             WasmScreen.LANDING -> ""
             WasmScreen.SEARCH -> "search"
             WasmScreen.RESULTS -> "results"
+            WasmScreen.SEAT_SELECTION -> "seats"
             WasmScreen.PASSENGERS -> "passengers"
             WasmScreen.PAYMENT -> "payment"
             WasmScreen.CONFIRMATION -> "confirmation"
@@ -185,10 +189,9 @@ private fun WasmAppContent() {
     // Wrap in localization provider
     LocalizationProvider(localizationState) {
         VelocityTheme(isRtl = localizationState.isRtl) {
-            SelectionContainer {
-                when (currentScreen) {
-                    WasmScreen.LANDING -> {
-                        LandingScreen(
+            when (currentScreen) {
+                WasmScreen.LANDING -> {
+                    LandingScreen(
                             onFlyNowClick = { currentScreen = WasmScreen.SEARCH },
                             onLoginClick = { currentScreen = WasmScreen.LOGIN },
                             onLogoutClick = {
@@ -247,6 +250,24 @@ private fun WasmAppContent() {
                         viewModel = bookingViewModel,
                         localizationState = localizationState,
                         isEmployee = isEmployee,
+                        onBack = { navigateBack() },
+                        onContinue = {
+                            if (isEmployee) {
+                                // Employees skip seat selection
+                                bookingViewModel.initializePassengerForms()
+                                currentScreen = WasmScreen.PASSENGERS
+                            } else {
+                                // Non-employees go to seat selection
+                                bookingViewModel.initializeSeatSelection()
+                                currentScreen = WasmScreen.SEAT_SELECTION
+                            }
+                        }
+                    )
+                }
+                WasmScreen.SEAT_SELECTION -> {
+                    WasmSeatSelectionScreen(
+                        viewModel = bookingViewModel,
+                        localizationState = localizationState,
                         onBack = { navigateBack() },
                         onContinue = {
                             bookingViewModel.initializePassengerForms()
@@ -309,7 +330,6 @@ private fun WasmAppContent() {
                         }
                     )
                 }
-            }
             }
         }
     }
@@ -438,6 +458,422 @@ private fun WasmResultsScreenContainer(
                     strings = strings
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun WasmSeatSelectionScreen(
+    viewModel: WasmBookingViewModel,
+    localizationState: LocalizationState,
+    onBack: () -> Unit,
+    onContinue: () -> Unit
+) {
+    val state by viewModel.seatSelectionState.collectAsState()
+    val isRtl = localizationState.isRtl
+    
+    VelocityThemeWithBackground(isRtl = isRtl) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+        ) {
+            // Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = VelocityColors.TextMain
+                    )
+                }
+                
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Select Seats",
+                        style = VelocityTheme.typography.timeBig,
+                        color = VelocityColors.TextMain
+                    )
+                    Text(
+                        text = "${state.originCode} → ${state.destinationCode}",
+                        style = VelocityTheme.typography.duration,
+                        color = VelocityColors.TextMuted
+                    )
+                }
+            }
+            
+            // Passenger count info
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                color = VelocityColors.Accent.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = VelocityColors.Accent
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Select ${state.passengerCount} seat${if (state.passengerCount > 1) "s" else ""}",
+                            style = VelocityTheme.typography.body,
+                            color = VelocityColors.TextMain
+                        )
+                    }
+                    Text(
+                        text = "${state.selectedSeats.size}/${state.passengerCount} selected",
+                        style = VelocityTheme.typography.duration,
+                        color = VelocityColors.Accent
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Legend
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                SeatLegendItem(color = VelocityColors.GlassBg, label = "Available")
+                SeatLegendItem(color = VelocityColors.Accent, label = "Selected")
+                SeatLegendItem(color = Color(0xFF4B5563), label = "Occupied")
+                SeatLegendItem(color = Color(0xFF7C3AED), label = "Premium")
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Aircraft seat map
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Cockpit indicator
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .width(200.dp)
+                                .height(60.dp)
+                                .background(
+                                    VelocityColors.GlassBg,
+                                    RoundedCornerShape(topStart = 100.dp, topEnd = 100.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "✈ FRONT",
+                                style = VelocityTheme.typography.labelSmall,
+                                color = VelocityColors.TextMuted
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    
+                    // Column headers
+                    item {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf("A", "B", "C", "", "D", "E", "F").forEach { col ->
+                                Box(
+                                    modifier = Modifier.size(40.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (col.isNotEmpty()) {
+                                        Text(
+                                            text = col,
+                                            style = VelocityTheme.typography.duration,
+                                            color = VelocityColors.TextMuted
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    
+                    // Seat rows
+                    items(state.seatMap.size) { index ->
+                        val row = state.seatMap[index]
+                        SeatRowComposable(
+                            row = row,
+                            selectedSeats = state.selectedSeats,
+                            onSeatClick = { seat -> viewModel.toggleSeatSelection(seat) }
+                        )
+                        
+                        // Exit row indicator
+                        if (row.isExitRow) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "← EXIT",
+                                    style = VelocityTheme.typography.labelSmall,
+                                    color = Color(0xFF22C55E)
+                                )
+                                Spacer(modifier = Modifier.width(100.dp))
+                                Text(
+                                    text = "EXIT →",
+                                    style = VelocityTheme.typography.labelSmall,
+                                    color = Color(0xFF22C55E)
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Tail indicator
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(150.dp)
+                                .height(40.dp)
+                                .background(
+                                    VelocityColors.GlassBg,
+                                    RoundedCornerShape(bottomStart = 50.dp, bottomEnd = 50.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "REAR",
+                                style = VelocityTheme.typography.labelSmall,
+                                color = VelocityColors.TextMuted
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+            }
+            
+            // Bottom bar with price and continue button
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = VelocityColors.BackgroundMid,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    // Selected seats summary
+                    if (state.selectedSeats.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Selected: ${state.selectedSeats.joinToString(", ")}",
+                                style = VelocityTheme.typography.body,
+                                color = VelocityColors.TextMain
+                            )
+                            if (state.totalSeatPrice > 0) {
+                                Text(
+                                    text = "+SAR ${state.totalSeatPrice}",
+                                    style = VelocityTheme.typography.body,
+                                    color = VelocityColors.Accent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Skip button
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.skipSeatSelection()
+                                onContinue()
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = VelocityColors.TextMuted
+                            ),
+                            border = BorderStroke(1.dp, VelocityColors.GlassBorder)
+                        ) {
+                            Text("Skip (Random)")
+                        }
+                        
+                        // Continue button
+                        Button(
+                            onClick = onContinue,
+                            modifier = Modifier.weight(1f),
+                            enabled = state.selectedSeats.size == state.passengerCount,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = VelocityColors.Accent,
+                                disabledContainerColor = VelocityColors.GlassBorder
+                            )
+                        ) {
+                            Text(
+                                text = "Continue",
+                                color = if (state.selectedSeats.size == state.passengerCount) 
+                                    Color.White else VelocityColors.TextMuted
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeatLegendItem(color: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .background(color, RoundedCornerShape(4.dp))
+        )
+        Text(
+            text = label,
+            style = VelocityTheme.typography.labelSmall,
+            color = VelocityColors.TextMuted
+        )
+    }
+}
+
+@Composable
+private fun SeatRowComposable(
+    row: com.fairair.app.viewmodel.SeatRow,
+    selectedSeats: List<String>,
+    onSeatClick: (com.fairair.app.viewmodel.Seat) -> Unit
+) {
+    Row(
+        modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left side seats (A, B, C)
+        row.seats.take(3).forEach { seat ->
+            SeatComposable(
+                seat = seat,
+                isSelected = seat.id in selectedSeats,
+                onClick = { onSeatClick(seat) }
+            )
+        }
+        
+        // Aisle with row number
+        Box(
+            modifier = Modifier.size(40.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "${row.rowNumber}",
+                style = VelocityTheme.typography.duration,
+                color = VelocityColors.TextMuted
+            )
+        }
+        
+        // Right side seats (D, E, F)
+        row.seats.drop(3).forEach { seat ->
+            SeatComposable(
+                seat = seat,
+                isSelected = seat.id in selectedSeats,
+                onClick = { onSeatClick(seat) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SeatComposable(
+    seat: com.fairair.app.viewmodel.Seat,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val backgroundColor = when {
+        isSelected -> VelocityColors.Accent
+        !seat.isAvailable -> Color(0xFF4B5563)
+        seat.isPremium -> Color(0xFF7C3AED).copy(alpha = 0.3f)
+        seat.isExitRow -> Color(0xFF22C55E).copy(alpha = 0.2f)
+        else -> VelocityColors.GlassBg
+    }
+    
+    val borderColor = when {
+        isSelected -> VelocityColors.Accent
+        !seat.isAvailable -> Color.Transparent
+        seat.isPremium -> Color(0xFF7C3AED)
+        seat.isExitRow -> Color(0xFF22C55E)
+        else -> VelocityColors.GlassBorder
+    }
+    
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(backgroundColor)
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .then(
+                if (seat.isAvailable) {
+                    Modifier
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .clickable(onClick = onClick)
+                } else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (seat.isAvailable) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = seat.column,
+                    style = VelocityTheme.typography.labelSmall,
+                    color = if (isSelected) Color.White else VelocityColors.TextMain,
+                    fontWeight = FontWeight.Bold
+                )
+                if (seat.price > 0 && !isSelected) {
+                    Text(
+                        text = "+${seat.price}",
+                        style = VelocityTheme.typography.labelSmall.copy(
+                            fontSize = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)
+                        ),
+                        color = VelocityColors.TextMuted
+                    )
+                }
+            }
+        } else {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Occupied",
+                tint = Color(0xFF6B7280),
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -617,7 +1053,7 @@ private fun WasmPassengerScreenContainer(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                VelocityGlassTextField(
+                                VelocityDateTextField(
                                     value = currentPassenger.dateOfBirth,
                                     onValueChange = { viewModel.updatePassengerField(PassengerFormField.DATE_OF_BIRTH, it) },
                                     label = "Date of Birth",
@@ -672,7 +1108,7 @@ private fun WasmPassengerScreenContainer(
                                     label = "Document Number",
                                     modifier = Modifier.weight(1f)
                                 )
-                                VelocityGlassTextField(
+                                VelocityDateTextField(
                                     value = currentPassenger.documentExpiry,
                                     onValueChange = { viewModel.updatePassengerField(PassengerFormField.DOCUMENT_EXPIRY, it) },
                                     label = "Expiry Date",
@@ -895,6 +1331,473 @@ private fun VelocityGlassTextField(
 }
 
 /**
+ * Specialized date text field with auto-dash insertion and proper cursor management.
+ * Handles YYYY-MM-DD format with automatic dash insertion after year and month.
+ * Includes validation for month (01-12) and day (01-31 depending on month).
+ */
+@Composable
+private fun VelocityDateTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String = "YYYY-MM-DD"
+) {
+    // Track the TextFieldValue internally to manage cursor position
+    var textFieldValue by remember(value) { 
+        mutableStateOf(TextFieldValue(value, TextRange(value.length))) 
+    }
+    
+    // Validation error message
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    // Validate the date and return error message if invalid
+    fun validateDate(dateStr: String): String? {
+        if (dateStr.length < 10) return null // Not complete yet
+        
+        val parts = dateStr.split("-")
+        if (parts.size != 3) return null
+        
+        val year = parts[0].toIntOrNull() ?: return "Invalid year"
+        val month = parts[1].toIntOrNull() ?: return "Invalid month"
+        val day = parts[2].toIntOrNull() ?: return "Invalid day"
+        
+        // Validate year (reasonable range)
+        if (year < 1900 || year > 2100) {
+            return "Year must be 1900-2100"
+        }
+        
+        // Validate month
+        if (month < 1 || month > 12) {
+            return "Month must be 01-12"
+        }
+        
+        // Validate day based on month
+        val maxDays = when (month) {
+            1, 3, 5, 7, 8, 10, 12 -> 31
+            4, 6, 9, 11 -> 30
+            2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
+            else -> 31
+        }
+        
+        if (day < 1 || day > maxDays) {
+            return when (month) {
+                2 -> if (maxDays == 29) "Day must be 01-29 for Feb in leap year" else "Day must be 01-28 for Feb"
+                4, 6, 9, 11 -> "Day must be 01-30 for this month"
+                else -> "Day must be 01-31"
+            }
+        }
+        
+        return null
+    }
+    
+    // Sync external value changes
+    LaunchedEffect(value) {
+        if (textFieldValue.text != value) {
+            textFieldValue = TextFieldValue(value, TextRange(value.length))
+        }
+        errorMessage = validateDate(value)
+    }
+    
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = VelocityTheme.typography.labelSmall,
+            color = VelocityColors.TextMuted,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        BasicTextField(
+            value = textFieldValue,
+            onValueChange = { newTextFieldValue ->
+                val oldText = textFieldValue.text
+                val newText = newTextFieldValue.text
+                
+                // Filter to only digits and dashes
+                val filtered = newText.filter { it.isDigit() || it == '-' }
+                
+                // If deleting, just update without auto-dash
+                if (filtered.length <= oldText.length) {
+                    val limitedFiltered = filtered.take(10)
+                    textFieldValue = TextFieldValue(
+                        text = limitedFiltered,
+                        selection = TextRange(minOf(newTextFieldValue.selection.start, limitedFiltered.length))
+                    )
+                    onValueChange(limitedFiltered)
+                    errorMessage = validateDate(limitedFiltered)
+                    return@BasicTextField
+                }
+                
+                // Get only digits
+                val digits = filtered.filter { it.isDigit() }
+                
+                // Build formatted string with auto-dashes
+                val formatted = buildString {
+                    for (i in digits.indices) {
+                        if (i == 4 && length == 4) append('-')
+                        if (i == 6 && length == 7) append('-')
+                        if (length < 10) append(digits[i])
+                    }
+                }
+                
+                // Calculate new cursor position
+                // If we added a dash, cursor should be after the dash
+                val oldDigitCount = oldText.count { it.isDigit() }
+                val newDigitCount = formatted.count { it.isDigit() }
+                val cursorPos = when {
+                    newDigitCount == 5 && oldDigitCount == 4 -> 6 // Just added 5th digit, cursor after dash
+                    newDigitCount == 7 && oldDigitCount == 6 -> 9 // Just added 7th digit, cursor after dash
+                    else -> formatted.length
+                }
+                
+                textFieldValue = TextFieldValue(
+                    text = formatted,
+                    selection = TextRange(cursorPos)
+                )
+                onValueChange(formatted)
+                errorMessage = validateDate(formatted)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(VelocityColors.BackgroundDeep.copy(alpha = 0.5f))
+                .border(
+                    width = 1.dp, 
+                    color = if (errorMessage != null) VelocityColors.Error else VelocityColors.GlassBorder.copy(alpha = 0.5f), 
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(horizontal = 14.dp),
+            textStyle = VelocityTheme.typography.body.copy(color = VelocityColors.TextMain),
+            cursorBrush = SolidColor(VelocityColors.Accent),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (textFieldValue.text.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = VelocityTheme.typography.body,
+                            color = VelocityColors.TextMuted.copy(alpha = 0.5f)
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
+        
+        // Error message tooltip
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = errorMessage ?: "",
+                style = VelocityTheme.typography.labelSmall,
+                color = VelocityColors.Error,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Specialized date text field for card expiry (MM/YY format) with auto-slash.
+ * Handles MM/YY format with automatic slash insertion after month.
+ * Includes validation for month (01-12) and expiry date.
+ */
+@Composable
+private fun VelocityCardExpiryTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String = "MM/YY"
+) {
+    // Track the TextFieldValue internally to manage cursor position
+    var textFieldValue by remember(value) { 
+        mutableStateOf(TextFieldValue(value, TextRange(value.length))) 
+    }
+    
+    // Validation error message
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    // Validate the expiry date
+    fun validateExpiry(expiryStr: String): String? {
+        if (expiryStr.length < 5) return null // Not complete yet
+        
+        val parts = expiryStr.split("/")
+        if (parts.size != 2) return null
+        
+        val month = parts[0].toIntOrNull() ?: return "Invalid month"
+        val year = parts[1].toIntOrNull() ?: return "Invalid year"
+        
+        // Validate month
+        if (month < 1 || month > 12) {
+            return "Month must be 01-12"
+        }
+        
+        // Validate not expired (assuming 20XX for the year)
+        val fullYear = 2000 + year
+        val currentYear = 2025 // Could use actual date
+        val currentMonth = 12
+        
+        if (fullYear < currentYear || (fullYear == currentYear && month < currentMonth)) {
+            return "Card has expired"
+        }
+        
+        return null
+    }
+    
+    // Sync external value changes
+    LaunchedEffect(value) {
+        if (textFieldValue.text != value) {
+            textFieldValue = TextFieldValue(value, TextRange(value.length))
+        }
+        errorMessage = validateExpiry(value)
+    }
+    
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = VelocityTheme.typography.labelSmall,
+            color = VelocityColors.TextMuted,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        BasicTextField(
+            value = textFieldValue,
+            onValueChange = { newTextFieldValue ->
+                val oldText = textFieldValue.text
+                val newText = newTextFieldValue.text
+                
+                // Filter to only digits and slash
+                val filtered = newText.filter { it.isDigit() || it == '/' }
+                
+                // If deleting, just update without auto-slash
+                if (filtered.length <= oldText.length) {
+                    val limitedFiltered = filtered.take(5)
+                    textFieldValue = TextFieldValue(
+                        text = limitedFiltered,
+                        selection = TextRange(minOf(newTextFieldValue.selection.start, limitedFiltered.length))
+                    )
+                    onValueChange(limitedFiltered)
+                    errorMessage = validateExpiry(limitedFiltered)
+                    return@BasicTextField
+                }
+                
+                // Get only digits
+                val digits = filtered.filter { it.isDigit() }
+                
+                // Build formatted string with auto-slash (MM/YY)
+                val formatted = buildString {
+                    for (i in digits.indices) {
+                        if (i == 2 && length == 2) append('/')
+                        if (length < 5) append(digits[i])
+                    }
+                }
+                
+                // Calculate new cursor position
+                // If we added a slash, cursor should be after the slash
+                val oldDigitCount = oldText.count { it.isDigit() }
+                val newDigitCount = formatted.count { it.isDigit() }
+                val cursorPos = when {
+                    newDigitCount == 3 && oldDigitCount == 2 -> 4 // Just added 3rd digit, cursor after slash
+                    else -> formatted.length
+                }
+                
+                textFieldValue = TextFieldValue(
+                    text = formatted,
+                    selection = TextRange(cursorPos)
+                )
+                onValueChange(formatted)
+                errorMessage = validateExpiry(formatted)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(VelocityColors.BackgroundDeep.copy(alpha = 0.5f))
+                .border(
+                    width = 1.dp,
+                    color = if (errorMessage != null) VelocityColors.Error else VelocityColors.GlassBorder.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(horizontal = 14.dp),
+            textStyle = VelocityTheme.typography.body.copy(color = VelocityColors.TextMain),
+            cursorBrush = SolidColor(VelocityColors.Accent),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (textFieldValue.text.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = VelocityTheme.typography.body,
+                            color = VelocityColors.TextMuted.copy(alpha = 0.5f)
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
+        
+        // Error message
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = errorMessage ?: "",
+                style = VelocityTheme.typography.labelSmall,
+                color = VelocityColors.Error,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Specialized text field for credit card number with auto-spacing every 4 digits.
+ * Only accepts digits and displays them as XXXX XXXX XXXX XXXX.
+ */
+@Composable
+private fun VelocityCardNumberTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String = "•••• •••• •••• ••••"
+) {
+    // Format display value with spaces every 4 digits
+    val displayValue = value.filter { it.isDigit() }.take(16).chunked(4).joinToString(" ")
+    
+    // Track the TextFieldValue internally to manage cursor position
+    var textFieldValue by remember(displayValue) { 
+        mutableStateOf(TextFieldValue(displayValue, TextRange(displayValue.length))) 
+    }
+    
+    // Sync external value changes
+    LaunchedEffect(displayValue) {
+        if (textFieldValue.text != displayValue) {
+            textFieldValue = TextFieldValue(displayValue, TextRange(displayValue.length))
+        }
+    }
+    
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = VelocityTheme.typography.labelSmall,
+            color = VelocityColors.TextMuted,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        BasicTextField(
+            value = textFieldValue,
+            onValueChange = { newTextFieldValue ->
+                // Extract only digits from input
+                val digits = newTextFieldValue.text.filter { it.isDigit() }.take(16)
+                
+                // Pass raw digits to ViewModel
+                onValueChange(digits)
+                
+                // Format for display
+                val formatted = digits.chunked(4).joinToString(" ")
+                
+                // Calculate cursor position
+                val cursorPos = minOf(newTextFieldValue.selection.start, formatted.length)
+                
+                textFieldValue = TextFieldValue(
+                    text = formatted,
+                    selection = TextRange(cursorPos)
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(VelocityColors.BackgroundDeep.copy(alpha = 0.5f))
+                .border(1.dp, VelocityColors.GlassBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp),
+            textStyle = VelocityTheme.typography.body.copy(color = VelocityColors.TextMain),
+            cursorBrush = SolidColor(VelocityColors.Accent),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (textFieldValue.text.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = VelocityTheme.typography.body,
+                            color = VelocityColors.TextMuted.copy(alpha = 0.5f)
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Specialized text field for CVV - digits only, max 4, obscured display.
+ */
+@Composable
+private fun VelocityCvvTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String = "•••"
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = VelocityTheme.typography.labelSmall,
+            color = VelocityColors.TextMuted,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        BasicTextField(
+            value = value,
+            onValueChange = { newValue ->
+                // Only allow digits, max 4
+                val filtered = newValue.filter { it.isDigit() }.take(4)
+                onValueChange(filtered)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(VelocityColors.BackgroundDeep.copy(alpha = 0.5f))
+                .border(1.dp, VelocityColors.GlassBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp),
+            textStyle = VelocityTheme.typography.body.copy(color = VelocityColors.TextMain),
+            cursorBrush = SolidColor(VelocityColors.Accent),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (value.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = VelocityTheme.typography.body,
+                            color = VelocityColors.TextMuted.copy(alpha = 0.5f)
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
+    }
+}
+
+/**
  * Chip selector for options like Title, Document Type.
  */
 @Composable
@@ -1097,12 +2000,10 @@ private fun WasmPaymentScreenContainer(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            WasmTextField(
+                            VelocityCardNumberTextField(
                                 value = state.cardNumber,
                                 onValueChange = { viewModel.updatePaymentField(PaymentFormField.CARD_NUMBER, it) },
-                                label = "Card Number *",
-                                placeholder = "•••• •••• •••• ••••",
-                                keyboardType = KeyboardType.Number
+                                label = "Card Number *"
                             )
 
                             Spacer(modifier = Modifier.height(12.dp))
@@ -1111,20 +2012,16 @@ private fun WasmPaymentScreenContainer(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                WasmTextField(
+                                VelocityCardExpiryTextField(
                                     value = state.expiryDate,
                                     onValueChange = { viewModel.updatePaymentField(PaymentFormField.EXPIRY, it) },
                                     label = "Expiry *",
-                                    placeholder = "MM/YY",
                                     modifier = Modifier.weight(1f)
                                 )
-                                WasmTextField(
+                                VelocityCvvTextField(
                                     value = state.cvv,
                                     onValueChange = { viewModel.updatePaymentField(PaymentFormField.CVV, it) },
                                     label = "CVV *",
-                                    placeholder = "123",
-                                    keyboardType = KeyboardType.Number,
-                                    isPassword = true,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -1303,14 +2200,12 @@ private fun WasmConfirmationScreenContainer(
                             color = VelocityColors.TextMuted
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        SelectionContainer {
-                            Text(
-                                text = state.pnr,
-                                style = VelocityTheme.typography.heroTitle,
-                                color = VelocityColors.Accent,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = state.pnr,
+                            style = VelocityTheme.typography.heroTitle,
+                            color = VelocityColors.Accent,
+                            fontWeight = FontWeight.Bold
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Save this reference for managing your booking",
@@ -1870,13 +2765,11 @@ private fun BookingCard(booking: com.fairair.app.api.BookingConfirmationDto) {
                         style = VelocityTheme.typography.duration,
                         color = VelocityColors.TextMuted
                     )
-                    SelectionContainer {
-                        Text(
-                            text = booking.pnr,
-                            style = VelocityTheme.typography.timeBig,
-                            color = VelocityColors.TextMain
-                        )
-                    }
+                    Text(
+                        text = booking.pnr,
+                        style = VelocityTheme.typography.timeBig,
+                        color = VelocityColors.TextMain
+                    )
                 }
                 
                 // Status badge
@@ -1916,13 +2809,11 @@ private fun BookingCard(booking: com.fairair.app.api.BookingConfirmationDto) {
                         style = VelocityTheme.typography.duration,
                         color = VelocityColors.TextMuted
                     )
-                    SelectionContainer {
-                        Text(
-                            text = booking.bookingReference,
-                            style = VelocityTheme.typography.body,
-                            color = VelocityColors.TextMain
-                        )
-                    }
+                    Text(
+                        text = booking.bookingReference,
+                        style = VelocityTheme.typography.body,
+                        color = VelocityColors.TextMain
+                    )
                 }
             }
             
