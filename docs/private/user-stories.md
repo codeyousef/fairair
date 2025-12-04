@@ -87,6 +87,36 @@
 
 ---
 
+### 1.7 Select Trip Type
+**As a** traveler  
+**I want to** choose between one-way, round-trip, or multi-city flights  
+**So that** I can book the type of journey I need
+
+**Acceptance Criteria:**
+- Trip type selector shows One-way, Round-trip, and Multi-city options
+- Round-trip is selected by default
+- Selecting round-trip enables return date selection
+- Return date must be after departure date
+- Search button requires return date for round-trip bookings
+- Trip type persists in search state
+
+---
+
+### 1.8 Select Return Date for Round-Trip
+**As a** traveler  
+**I want to** select a return date when booking a round-trip  
+**So that** I can book both outbound and return flights together
+
+**Acceptance Criteria:**
+- Return date field appears when round-trip is selected
+- Return date picker shows dates starting from departure date
+- Dates before departure date are disabled
+- Low fare prices shown on return date calendar
+- "Returning on [Date]" appears in the sentence builder
+- Search includes both departure and return dates
+
+---
+
 ## 2. Flight Results & Fare Selection
 
 ### 2.1 View Flight Search Results
@@ -260,6 +290,36 @@
 - Already taken seats are indicated
 - I can select seats for each passenger
 - Seat prices are shown (if applicable)
+
+---
+
+### 4.5 Pre-Order Meals
+**As a** traveler  
+**I want to** pre-order meals for my flight  
+**So that** I can enjoy my preferred food during the journey
+
+**Acceptance Criteria:**
+- Menu categories displayed (Hot Meals, Cold Meals, Snacks, Beverages)
+- Each meal shows name, description, price, and dietary tags
+- I can select meals for each passenger
+- Vegetarian, Halal, and other dietary options available
+- Total meal cost added to booking total
+- Meals can be added during booking or via Manage Booking
+
+---
+
+### 4.6 Purchase Extra Baggage
+**As a** traveler  
+**I want to** purchase additional baggage allowance  
+**So that** I can bring more luggage on my trip
+
+**Acceptance Criteria:**
+- Baggage options displayed with weight limits (15kg, 23kg, 32kg)
+- Prices shown for each option
+- I can add baggage for each passenger individually
+- Online price is cheaper than airport price
+- Total updates when baggage added
+- Can add up to 4 hours before departure
 
 ---
 
@@ -714,16 +774,419 @@
 
 ---
 
+## 15. Online Check-In
+
+### 15.1 Initiate Online Check-In
+**As a** traveler  
+**I want to** check in online before my flight  
+**So that** I can skip airport check-in queues
+
+**Acceptance Criteria:**
+- Check-in accessible from landing page and navigation
+- Enter PNR (booking reference) and last name
+- Check-in available 24-48 hours before departure
+- Clear error if outside check-in window
+
+---
+
+### 15.2 Select Passengers for Check-In
+**As a** traveler  
+**I want to** choose which passengers to check in  
+**So that** I can check in for all or some travelers
+
+**Acceptance Criteria:**
+- List of passengers on the booking displayed
+- Each passenger has a checkbox for selection
+- "Select All" option available
+- At least one passenger must be selected
+- Continue button enabled when selection made
+
+---
+
+### 15.3 View and Download Boarding Pass
+**As a** traveler  
+**I want to** receive my boarding pass after check-in  
+**So that** I have proof of check-in for airport security
+
+**Acceptance Criteria:**
+- Boarding pass displayed with passenger name, flight details
+- QR/barcode for scanning at airport
+- Seat number shown if assigned
+- Option to save/download boarding pass
+- Can be viewed offline after download
+
+---
+
+### 15.4 Check-In Multiple Passengers
+**As a** traveler  
+**I want to** check in multiple passengers at once  
+**So that** I can complete the process for my group efficiently
+
+**Acceptance Criteria:**
+- Select multiple passengers from the list
+- Single confirmation for all selected passengers
+- Individual boarding passes generated for each
+- All boarding passes accessible from confirmation
+
+---
+
+### 15.5 Handle Check-In Restrictions
+**As a** traveler  
+**I want to** understand why I cannot check in online  
+**So that** I know what to do at the airport
+
+**Acceptance Criteria:**
+- Clear message if check-in not available
+- Reasons explained (too early, too late, documentation required)
+- Instructions for airport check-in
+- Contact information for assistance
+
+---
+
+## 16. Manage Booking
+
+### 16.1 Retrieve Existing Booking
+**As a** traveler  
+**I want to** access my existing booking using PNR and last name  
+**So that** I can view or modify my reservation
+
+**Acceptance Criteria:**
+- Enter PNR (booking reference) and last name
+- Booking details retrieved and displayed
+- Flight information, passengers, and services shown
+- Clear error if booking not found
+
+---
+
+### 16.2 View Booking Details
+**As a** traveler  
+**I want to** see complete details of my booking  
+**So that** I can verify all information is correct
+
+**Acceptance Criteria:**
+- Flight details (route, date, time, flight number)
+- Passenger list with names and documents
+- Selected fare family and included services
+- Ancillary services (baggage, meals, seats)
+- Total paid and payment status
+
+---
+
+### 16.3 Modify Flight Date or Time
+**As a** traveler  
+**I want to** change my flight to a different date or time  
+**So that** I can adjust my travel plans
+
+**Acceptance Criteria:**
+- "Change Flight" option available if fare allows
+- See available alternatives for same route
+- Price difference displayed (if any)
+- Modification fee shown based on fare rules
+- Confirm changes and pay difference if required
+
+---
+
+### 16.4 Update Contact Information
+**As a** traveler  
+**I want to** update my email or phone number  
+**So that** I receive important flight notifications
+
+**Acceptance Criteria:**
+- Edit contact information option
+- Email and phone fields editable
+- Validation on new values
+- Confirmation of update
+- No fee for contact changes
+
+---
+
+### 16.5 Cancel Booking
+**As a** traveler  
+**I want to** cancel my booking  
+**So that** I can receive a refund if eligible
+
+**Acceptance Criteria:**
+- Cancel option available if fare allows
+- Cancellation policy clearly explained
+- Refund amount or credit shown
+- Reason for cancellation (optional)
+- Confirmation before final cancellation
+- Refund processed to original payment method
+
+---
+
+### 16.6 Add Services to Existing Booking
+**As a** traveler  
+**I want to** add extra services after booking  
+**So that** I can enhance my trip without rebooking
+
+**Acceptance Criteria:**
+- "Add Services" option in manage booking
+- Baggage, meals, seats available for purchase
+- Prices shown for each service
+- Add for specific passengers
+- Payment for additional services
+- Updated booking confirmation
+
+---
+
+## 17. Membership (Adeal)
+
+### 17.1 View Membership Plans
+**As a** frequent traveler  
+**I want to** see available membership plans  
+**So that** I can evaluate subscription benefits
+
+**Acceptance Criteria:**
+- Three plans displayed: 12, 24, 36 round trips per year
+- Monthly price for each plan shown
+- Benefits listed (domestic flights, booking window, included bag)
+- "Recommended" badge on popular plan
+- Comparison of plans easy to understand
+
+---
+
+### 17.2 Subscribe to Membership
+**As a** frequent traveler  
+**I want to** subscribe to a membership plan  
+**So that** I can fly at a fixed monthly price
+
+**Acceptance Criteria:**
+- Select desired plan
+- Account creation if not logged in
+- Payment method entry (credit card for monthly billing)
+- Terms and conditions acceptance
+- Subscription confirmation with start date
+- Welcome email with membership details
+
+---
+
+### 17.3 Book Flights with Membership
+**As a** member  
+**I want to** book flights using my membership  
+**So that** I can travel without paying per-flight
+
+**Acceptance Criteria:**
+- Member login shows available trips
+- Domestic destinations only (as per plan)
+- Book 3+ days before departure
+- Remaining trips for current period shown
+- No additional flight cost (base fare)
+- Add-ons available for purchase separately
+
+---
+
+### 17.4 View Membership Usage
+**As a** member  
+**I want to** see how many trips I've used  
+**So that** I can plan my remaining travel
+
+**Acceptance Criteria:**
+- Usage dashboard in membership section
+- Trips used vs. trips remaining
+- Current billing period dates
+- History of booked flights
+- Next billing date and amount
+
+---
+
+### 17.5 Manage Subscription
+**As a** member  
+**I want to** manage my subscription settings  
+**So that** I can control my membership
+
+**Acceptance Criteria:**
+- View current plan details
+- Toggle auto-renewal on/off
+- Update payment method
+- View billing history
+- Cancel subscription option
+
+---
+
+### 17.6 Cancel Membership
+**As a** member  
+**I want to** cancel my membership  
+**So that** I can stop future charges
+
+**Acceptance Criteria:**
+- Cancel option in subscription settings
+- Cancellation policy explained (12-month commitment)
+- Early cancellation fees shown if applicable
+- Confirmation required before cancellation
+- Membership valid until end of current billing period
+
+---
+
+## 18. Help & Support
+
+### 18.1 Browse Help Categories
+**As a** traveler  
+**I want to** browse help topics by category  
+**So that** I can find answers to my questions
+
+**Acceptance Criteria:**
+- Help center accessible from navigation
+- Categories displayed: Booking, Baggage, Flight, Special Assistance, App/Website, Membership
+- Each category shows article count
+- Tap to expand category and see articles
+- Visual icons for each category
+
+---
+
+### 18.2 Read FAQ Articles
+**As a** traveler  
+**I want to** read answers to common questions  
+**So that** I can resolve issues without contacting support
+
+**Acceptance Criteria:**
+- FAQ accordion with question titles
+- Tap to expand and see answer
+- Clear, helpful answers
+- Related articles suggested
+- Search functionality to find specific topics
+
+---
+
+### 18.3 Contact Customer Support
+**As a** traveler  
+**I want to** contact support when I need help  
+**So that** I can resolve complex issues
+
+**Acceptance Criteria:**
+- Contact options displayed (phone, email)
+- Phone number for 24/7 support
+- Email support link
+- Expected response times shown
+- Social media links for additional support
+
+---
+
+### 18.4 Access Help from Any Screen
+**As a** traveler  
+**I want to** access help easily from anywhere in the app  
+**So that** I can get assistance when I'm stuck
+
+**Acceptance Criteria:**
+- Help icon/link accessible in navigation
+- Quick actions (Call, Email) prominent
+- Contextual help for complex screens
+- Search bar for quick lookups
+
+---
+
+## 19. External Services
+
+### 19.1 Book Hotels via Partner
+**As a** traveler  
+**I want to** book hotels through the app  
+**So that** I can arrange accommodation for my trip
+
+**Acceptance Criteria:**
+- Hotels service card on landing page
+- Links to Booking.com partner
+- Pre-filled destination if available
+- Opens in new browser tab/window
+- Partner attribution shown
+
+---
+
+### 19.2 Rent a Car via Partner
+**As a** traveler  
+**I want to** rent a car through the app  
+**So that** I can arrange ground transportation
+
+**Acceptance Criteria:**
+- Car Rental service card on landing page
+- Links to Rentalcars.com partner
+- Pre-filled pickup location if available
+- Opens in new browser tab/window
+- Partner attribution shown
+
+---
+
+### 19.3 Access External Links Correctly
+**As a** traveler  
+**I want to** external service links to open properly  
+**So that** I can complete bookings with partners
+
+**Acceptance Criteria:**
+- Links open in external browser (mobile)
+- Links open in new tab (web)
+- Phone links open dialer
+- Email links open mail client
+- No broken links or errors
+
+---
+
+## 20. Landing Page
+
+### 20.1 View Landing Page
+**As a** visitor  
+**I want to** see an engaging landing page  
+**So that** I understand what FairAir offers
+
+**Acceptance Criteria:**
+- Hero section with main CTA ("Search Flights")
+- Quick services section (Check-in, Manage, Membership)
+- External services (Hotels, Car Rental, Help)
+- Promotional deals section
+- Popular destinations section
+- Feature highlights (Best Price, Flexible, Support)
+
+---
+
+### 20.2 Access Quick Services from Landing
+**As a** traveler  
+**I want to** access key services from the landing page  
+**So that** I can quickly get to what I need
+
+**Acceptance Criteria:**
+- Check-In card links to check-in flow
+- Manage Booking card links to manage flow
+- Membership card links to membership section
+- Hotels card opens external hotel booking
+- Car Rental card opens external car rental
+- Help card links to help center
+
+---
+
+### 20.3 View Promotional Deals
+**As a** traveler  
+**I want to** see current flight deals and promotions  
+**So that** I can find discounted fares
+
+**Acceptance Criteria:**
+- Deal cards with origin/destination, price, dates
+- Badge for deal type (Flash Sale, % Off, New Route)
+- Tap deal to pre-fill search with those cities
+- Visual appeal with colors and formatting
+
+---
+
+### 20.4 Explore Popular Destinations
+**As a** traveler  
+**I want to** see popular destinations  
+**So that** I can discover where to travel
+
+**Acceptance Criteria:**
+- Destination cards with city name and country
+- Airport code displayed
+- Tap to pre-fill destination in search
+- Horizontal scroll for multiple destinations
+
+---
+
 ---
 
 ## Summary Statistics
 
 | Category | User Stories |
 |----------|--------------|
-| Flight Search & Discovery | 6 |
+| Flight Search & Discovery | 8 |
 | Flight Results & Fare Selection | 5 |
 | Passenger Information | 4 |
-| Ancillary Services | 4 |
+| Ancillary Services | 6 |
 | Payment | 5 |
 | Booking Confirmation | 3 |
 | Saved Bookings & Offline | 3 |
@@ -734,7 +1197,13 @@
 | Guest Checkout & Auth | 3 |
 | App Initialization | 3 |
 | Visual Design | 2 |
-| **Total** | **52** |
+| Online Check-In | 5 |
+| Manage Booking | 6 |
+| Membership (Adeal) | 6 |
+| Help & Support | 4 |
+| External Services | 3 |
+| Landing Page | 4 |
+| **Total** | **84** |
 
 ---
 

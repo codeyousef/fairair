@@ -401,7 +401,7 @@ class EdgeCaseAndValidationTest {
         val failingClient = MockFairairApiClient(shouldFail = true, failureMessage = "Connection timeout")
         
         val result = failingClient.searchFlights(
-            FlightSearchRequestDto("RUH", "JED", "2024-12-15", PassengerCountsDto(1, 0, 0))
+            FlightSearchRequestDto("RUH", "JED", "2024-12-15", null, PassengerCountsDto(1, 0, 0))
         )
         
         assertTrue(result is ApiResult.Error)

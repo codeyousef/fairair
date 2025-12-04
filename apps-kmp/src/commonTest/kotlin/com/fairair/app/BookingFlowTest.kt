@@ -529,6 +529,7 @@ class BookingFlowTest {
             origin = "RUH",
             destination = "JED",
             departureDate = "2024-12-15",
+            returnDate = null,
             passengers = PassengerCountsDto(adults = 2, children = 0, infants = 0)
         )
         
@@ -539,7 +540,7 @@ class BookingFlowTest {
         val destination = StationDto("JED", "King Abdulaziz", "Jeddah", "Saudi Arabia")
         
         bookingFlowState.setSearchCriteria(
-            SearchCriteria(origin, destination, "2024-12-15", searchRequest.passengers)
+            SearchCriteria(origin, destination, "2024-12-15", null, searchRequest.passengers)
         )
         bookingFlowState.setSearchResult((searchResult as ApiResult.Success).data)
         

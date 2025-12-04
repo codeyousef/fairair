@@ -34,6 +34,11 @@ kotlin {
                     port = 8081
                 }
             }
+            testTask {
+                useKarma {
+                    useChromiumHeadless()
+                }
+            }
         }
         binaries.executable()
     }

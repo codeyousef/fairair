@@ -33,6 +33,27 @@ object ApiRoutes {
         const val LOGIN = "$BASE/login"
 
         /**
+         * POST: Register a new user account.
+         * Request: RegisterRequestDto
+         * Response: RegisterResponseDto
+         */
+        const val REGISTER = "$BASE/register"
+
+        /**
+         * POST: Request password reset email.
+         * Request: ForgotPasswordRequestDto
+         * Response: ForgotPasswordResponseDto
+         */
+        const val FORGOT_PASSWORD = "$BASE/forgot-password"
+
+        /**
+         * POST: Reset password with token.
+         * Request: ResetPasswordRequestDto
+         * Response: ResetPasswordResponseDto
+         */
+        const val RESET_PASSWORD = "$BASE/reset-password"
+
+        /**
          * POST: Refresh access token.
          * Request: RefreshTokenRequestDto
          * Response: LoginResponseDto

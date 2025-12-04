@@ -25,6 +25,7 @@ class SearchController(
      * POST /api/v1/search
      *
      * Searches for available flights based on the provided criteria.
+     * Supports both one-way and round-trip searches.
      * Results are cached for 5 minutes using the returned searchId.
      * Route-based caching shares results across users searching the same route.
      *
@@ -33,12 +34,31 @@ class SearchController(
      */
     @PostMapping
     suspend fun searchFlights(@RequestBody request: FlightSearchRequestDto): ResponseEntity<Any> {
-        log.info("POST /search: ${request.origin} -> ${request.destination} on ${request.departureDate}")
+        log.info("POST /search: ${request.origin} -> ${request.destination} on ${request.departureDate}" +
+                 if (request.returnDate != null) " (return: ${request.returnDate})" else "")
 
         return try {
-            val searchRequest = request.toModel()
-            val response = flightService.searchFlights(searchRequest)
-            ResponseEntity.ok(FlightResponseDto.from(response))
+            // Search outbound flights
+            val outboundRequest = request.toModel()
+            val outboundResponse = flightService.searchFlights(outboundRequest)
+            
+            // Search return flights if round-trip
+            val returnResponse = request.toReturnModel()?.let { returnRequest ->
+                flightService.searchFlights(returnRequest)
+            }
+            
+            if (returnResponse != null) {
+                // Round-trip response
+                ResponseEntity.ok(RoundTripFlightResponseDto(
+                    tripType = "ROUND_TRIP",
+                    outbound = FlightResponseDto.from(outboundResponse),
+                    return_ = FlightResponseDto.from(returnResponse),
+                    searchId = outboundResponse.searchId
+                ))
+            } else {
+                // One-way response
+                ResponseEntity.ok(FlightResponseDto.from(outboundResponse))
+            }
         } catch (e: InvalidRouteException) {
             log.warn("Invalid route: ${e.message}")
             ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -107,11 +127,14 @@ class SearchController(
 
 /**
  * Request DTO for flight search.
+ * Supports one-way and round-trip searches.
  */
 data class FlightSearchRequestDto(
     val origin: String,
     val destination: String,
     val departureDate: String,
+    val returnDate: String? = null,  // For round-trip
+    val tripType: String = "ONE_WAY", // ONE_WAY or ROUND_TRIP
     val passengers: PassengerCountsDto
 ) {
     fun toModel(): FlightSearchRequest {
@@ -119,6 +142,16 @@ data class FlightSearchRequestDto(
             origin = AirportCode(origin),
             destination = AirportCode(destination),
             departureDate = LocalDate.parse(departureDate),
+            passengers = passengers.toModel()
+        )
+    }
+    
+    fun toReturnModel(): FlightSearchRequest? {
+        if (returnDate == null) return null
+        return FlightSearchRequest(
+            origin = AirportCode(destination), // Swap origin/destination for return
+            destination = AirportCode(origin),
+            departureDate = LocalDate.parse(returnDate),
             passengers = passengers.toModel()
         )
     }
@@ -146,7 +179,8 @@ data class PassengerCountsDto(
  */
 data class FlightResponseDto(
     val flights: List<FlightDto>,
-    val searchId: String
+    val searchId: String,
+    val tripType: String = "ONE_WAY"
 ) {
     companion object {
         fun from(response: FlightResponse): FlightResponseDto {
@@ -157,6 +191,16 @@ data class FlightResponseDto(
         }
     }
 }
+
+/**
+ * Response DTO for round-trip flight search.
+ */
+data class RoundTripFlightResponseDto(
+    val tripType: String,
+    val outbound: FlightResponseDto,
+    val return_: FlightResponseDto,
+    val searchId: String
+)
 
 /**
  * DTO for individual flight.

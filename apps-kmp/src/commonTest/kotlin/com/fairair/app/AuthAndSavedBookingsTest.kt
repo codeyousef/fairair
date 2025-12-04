@@ -434,7 +434,7 @@ class AuthAndSavedBookingsTest {
         
         mockApiClient.login("test@example.com", "password123")
         mockApiClient.searchFlights(
-            FlightSearchRequestDto("RUH", "JED", "2024-12-15", PassengerCountsDto(1, 0, 0))
+            FlightSearchRequestDto("RUH", "JED", "2024-12-15", null, PassengerCountsDto(1, 0, 0))
         )
         
         assertEquals(1, mockApiClient.loginCalls.size)

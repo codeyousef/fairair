@@ -31,6 +31,16 @@ class ManageBookingController(
     ): ResponseEntity<Any> {
         log.info("POST /manage: pnr=${request.pnr}")
 
+        // Validate input
+        if (request.pnr.isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ManageBookingErrorResponse("VALIDATION_ERROR", "PNR is required"))
+        }
+        if (request.lastName.isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ManageBookingErrorResponse("VALIDATION_ERROR", "Last name is required"))
+        }
+
         return try {
             val booking = manageBookingService.retrieveBooking(
                 pnr = request.pnr,

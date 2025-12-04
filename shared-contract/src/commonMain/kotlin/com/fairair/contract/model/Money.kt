@@ -14,12 +14,6 @@ data class Money(
     val amountMinor: Long,
     val currency: Currency
 ) {
-    init {
-        require(amountMinor >= 0) {
-            "Amount must be non-negative: $amountMinor"
-        }
-    }
-
     /**
      * Returns the amount as a Double for display purposes.
      * SAR uses 2 decimal places (100 halalas = 1 SAR).

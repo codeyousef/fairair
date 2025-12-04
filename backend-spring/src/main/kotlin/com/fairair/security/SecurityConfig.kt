@@ -66,6 +66,12 @@ class SecurityConfig(
                     .pathMatchers("/api/v1/config/**").permitAll()
                     .pathMatchers("/api/v1/search", "/api/v1/search/**").permitAll()
                     .pathMatchers("/api/v1/booking", "/api/v1/booking/**").permitAll()
+                    .pathMatchers("/api/v1/checkin", "/api/v1/checkin/**").permitAll()
+                    .pathMatchers("/api/v1/manage", "/api/v1/manage/**").permitAll()
+                    .pathMatchers("/api/v1/seats", "/api/v1/seats/**").permitAll()
+                    .pathMatchers("/api/v1/meals", "/api/v1/meals/**").permitAll()
+                    .pathMatchers("/api/v1/content", "/api/v1/content/**").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/api/v1/membership/plans").permitAll()
                     
                     // Allow OPTIONS for CORS preflight
                     .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()

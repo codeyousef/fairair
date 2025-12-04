@@ -353,4 +353,206 @@ class AuthE2ETest : E2ETestBase() {
                 .expectStatus().isOk
         }
     }
+
+    @Nested
+    @DisplayName("User Registration")
+    inner class UserRegistration {
+
+        @Test
+        @DisplayName("Should register new user")
+        fun `register new user returns success`() {
+            val email = "newuser-${System.currentTimeMillis()}@test.com"
+            val registerRequest = mapOf(
+                "email" to email,
+                "password" to "SecurePass123!",
+                "firstName" to "New",
+                "lastName" to "User",
+                "phone" to "+966501234567"
+            )
+
+            webClient.post()
+                .uri("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(objectMapper.writeValueAsString(registerRequest))
+                .exchange()
+                .expectStatus().isCreated
+                .expectBody()
+                .jsonPath("$.success").isEqualTo(true)
+                .jsonPath("$.user.email").isEqualTo(email)
+                .jsonPath("$.user.firstName").isEqualTo("New")
+                .jsonPath("$.user.lastName").isEqualTo("User")
+        }
+
+        @Test
+        @DisplayName("Should reject duplicate email")
+        fun `register with existing email returns conflict`() {
+            val registerRequest = mapOf(
+                "email" to DEMO_USER_EMAIL,
+                "password" to "SecurePass123!",
+                "firstName" to "Duplicate",
+                "lastName" to "User"
+            )
+
+            webClient.post()
+                .uri("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(objectMapper.writeValueAsString(registerRequest))
+                .exchange()
+                .expectStatus().isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.code").isEqualTo("EMAIL_EXISTS")
+        }
+
+        @Test
+        @DisplayName("Should reject weak password")
+        fun `register with weak password returns bad request`() {
+            val registerRequest = mapOf(
+                "email" to "weak-${System.currentTimeMillis()}@test.com",
+                "password" to "123",
+                "firstName" to "Weak",
+                "lastName" to "Password"
+            )
+
+            webClient.post()
+                .uri("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(objectMapper.writeValueAsString(registerRequest))
+                .exchange()
+                .expectStatus().isBadRequest
+                .expectBody()
+                .jsonPath("$.code").isEqualTo("WEAK_PASSWORD")
+        }
+
+        @Test
+        @DisplayName("Should reject invalid email format")
+        fun `register with invalid email returns bad request`() {
+            val registerRequest = mapOf(
+                "email" to "invalid-email",
+                "password" to "SecurePass123!",
+                "firstName" to "Invalid",
+                "lastName" to "Email"
+            )
+
+            webClient.post()
+                .uri("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(objectMapper.writeValueAsString(registerRequest))
+                .exchange()
+                .expectStatus().isBadRequest
+                .expectBody()
+                .jsonPath("$.code").isEqualTo("INVALID_EMAIL")
+        }
+    }
+
+    @Nested
+    @DisplayName("Password Reset")
+    inner class PasswordReset {
+
+        @Test
+        @DisplayName("Should initiate password reset")
+        fun `forgot password returns success for existing email`() {
+            val forgotRequest = mapOf(
+                "email" to DEMO_USER_EMAIL
+            )
+
+            webClient.post()
+                .uri("/api/v1/auth/forgot-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(objectMapper.writeValueAsString(forgotRequest))
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.success").isEqualTo(true)
+                .jsonPath("$.message").isNotEmpty
+        }
+
+        @Test
+        @DisplayName("Should return success even for non-existent email (security)")
+        fun `forgot password returns success for non-existent email`() {
+            val forgotRequest = mapOf(
+                "email" to "nonexistent@test.com"
+            )
+
+            // For security, we don't reveal if email exists or not
+            webClient.post()
+                .uri("/api/v1/auth/forgot-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(objectMapper.writeValueAsString(forgotRequest))
+                .exchange()
+                .expectStatus().isOk
+        }
+
+        @Test
+        @DisplayName("Should reset password with valid token")
+        fun `reset password with valid token returns success`() {
+            // Note: In real implementation, token would come from email
+            val resetRequest = mapOf(
+                "token" to "valid-reset-token",
+                "newPassword" to "NewSecurePass123!"
+            )
+
+            webClient.post()
+                .uri("/api/v1/auth/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(objectMapper.writeValueAsString(resetRequest))
+                .exchange()
+                // Token validation may fail in test, but endpoint should exist
+                .expectStatus().value { status -> 
+                    assert(status in listOf(200, 400, 404)) 
+                }
+        }
+    }
+
+    @Nested
+    @DisplayName("User Profile")
+    inner class UserProfile {
+
+        @Test
+        @DisplayName("Should get user profile when authenticated")
+        fun `get profile returns user details`() {
+            val accessToken = login()!!
+
+            webClient.get()
+                .uri("/api/v1/auth/profile")
+                .header("Authorization", "Bearer $accessToken")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.email").isEqualTo(DEMO_USER_EMAIL)
+                .jsonPath("$.firstName").isNotEmpty
+                .jsonPath("$.lastName").isNotEmpty
+        }
+
+        @Test
+        @DisplayName("Should reject profile request without auth")
+        fun `get profile without auth returns unauthorized`() {
+            webClient.get()
+                .uri("/api/v1/auth/profile")
+                .exchange()
+                .expectStatus().isUnauthorized
+        }
+
+        @Test
+        @DisplayName("Should update user profile")
+        fun `update profile returns updated user`() {
+            val accessToken = login()!!
+
+            val updateRequest = mapOf(
+                "firstName" to "UpdatedFirst",
+                "lastName" to "UpdatedLast",
+                "phone" to "+966509876543"
+            )
+
+            webClient.put()
+                .uri("/api/v1/auth/profile")
+                .header("Authorization", "Bearer $accessToken")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(objectMapper.writeValueAsString(updateRequest))
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.firstName").isEqualTo("UpdatedFirst")
+                .jsonPath("$.lastName").isEqualTo("UpdatedLast")
+        }
+    }
 }

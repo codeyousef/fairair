@@ -31,6 +31,16 @@ class CheckInController(
     ): ResponseEntity<Any> {
         log.info("POST /checkin: pnr=${request.pnr}")
 
+        // Validate input
+        if (request.pnr.isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(CheckInErrorResponse("VALIDATION_ERROR", "PNR is required"))
+        }
+        if (request.lastName.isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(CheckInErrorResponse("VALIDATION_ERROR", "Last name is required"))
+        }
+
         return try {
             val eligibility = checkInService.getCheckInEligibility(
                 pnr = request.pnr,
@@ -59,6 +69,12 @@ class CheckInController(
         @RequestBody request: CompleteCheckInRequestDto
     ): ResponseEntity<Any> {
         log.info("POST /checkin/$pnr/complete: passengers=${request.passengerIndices}")
+
+        // Validate input
+        if (request.passengerIndices.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(CheckInErrorResponse("VALIDATION_ERROR", "At least one passenger must be selected for check-in"))
+        }
 
         return try {
             val completion = checkInService.completeCheckIn(

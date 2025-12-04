@@ -388,7 +388,7 @@ class MockLocalStorage {
     
     data class CachedRoutes(
         val routes: Map<String, List<String>>,
-        val timestamp: Long = System.currentTimeMillis()
+        val timestamp: Long = kotlin.time.TimeSource.Monotonic.markNow().elapsedNow().inWholeMilliseconds
     )
     
     suspend fun cacheRoutes(routes: Map<String, List<String>>) {
@@ -403,7 +403,7 @@ class MockLocalStorage {
         val origin: String,
         val destination: String,
         val departureDate: String,
-        val timestamp: Long = System.currentTimeMillis()
+        val timestamp: Long = kotlin.time.TimeSource.Monotonic.markNow().elapsedNow().inWholeMilliseconds
     )
     
     suspend fun addSearchToHistory(origin: String, destination: String, departureDate: String) {

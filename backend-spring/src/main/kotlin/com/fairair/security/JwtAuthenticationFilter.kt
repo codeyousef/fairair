@@ -35,6 +35,9 @@ class JwtAuthenticationFilter(
             "/health/ready",
             "/actuator/health",
             "/api/v1/auth/login",
+            "/api/v1/auth/register",
+            "/api/v1/auth/forgot-password",
+            "/api/v1/auth/reset-password",
             "/api/v1/auth/refresh",
             "/api/v1/auth/logout",
             "/api/v1/config/stations",
@@ -42,7 +45,12 @@ class JwtAuthenticationFilter(
             "/api/v1/config/route-map",
             "/api/v1/search",
             "/api/v1/search/low-fares",
-            "/api/v1/booking"
+            "/api/v1/booking",
+            "/api/v1/checkin",
+            "/api/v1/manage",
+            "/api/v1/membership/plans",
+            "/api/v1/seats",
+            "/api/v1/meals"
         )
         
         /**
@@ -52,7 +60,12 @@ class JwtAuthenticationFilter(
             "/actuator/",
             "/api/v1/config/destinations/",
             "/api/v1/config/",
-            "/api/v1/booking/"  // Booking retrieval by PNR is public
+            "/api/v1/booking/",
+            "/api/v1/checkin/",
+            "/api/v1/manage/",
+            "/api/v1/seats/",
+            "/api/v1/meals/",
+            "/api/v1/content/"
         )
         
         /**
