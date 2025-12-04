@@ -92,6 +92,23 @@ object VelocityColors {
      * Background gradient end (bottom) - midnight (#0F172A)
      */
     val GradientEnd = Color(0xFF0F172A)
+    
+    // Price indicator colors for low-fare calendar
+    
+    /**
+     * Low/cheap price indicator - green (#10B981)
+     */
+    val PriceLow = Color(0xFF10B981)
+    
+    /**
+     * Medium price indicator - amber (#F59E0B)
+     */
+    val PriceMedium = Color(0xFFF59E0B)
+    
+    /**
+     * High/expensive price indicator - rose (#F43F5E)
+     */
+    val PriceHigh = Color(0xFFF43F5E)
 }
 
 /**

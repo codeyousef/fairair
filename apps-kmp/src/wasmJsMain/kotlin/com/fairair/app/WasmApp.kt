@@ -377,7 +377,10 @@ private fun WasmSearchScreenContainer(
                     }
                 },
                 onNavigateToSettings = onNavigateToSettings,
-                onNavigateToSavedBookings = onNavigateToSavedBookings
+                onNavigateToSavedBookings = onNavigateToSavedBookings,
+                onMonthChange = { year, month ->
+                    viewModel.fetchLowFaresForMonth(year, month)
+                }
             )
         }
     }

@@ -1,6 +1,7 @@
 package com.fairair.cache
 
 import com.fairair.contract.model.FlightResponse
+import com.fairair.contract.model.FlightSearchRequest
 import com.fairair.contract.model.RouteMap
 import com.fairair.contract.model.Station
 import com.github.benmanes.caffeine.cache.Cache
@@ -15,22 +16,87 @@ import org.springframework.stereotype.Service
  * 
  * Provides suspend-aware cache retrieval methods to avoid blocking
  * Netty event loop threads in WebFlux applications.
+ * 
+ * Route-based caching: Flight searches are cached by route+date+passengers
+ * so that when different users search the same route, they get cached results.
  */
 @Service
 class CacheService(
     private val routesCache: Cache<String, Any>,
     private val stationsCache: Cache<String, Any>,
-    private val searchesCache: Cache<String, Any>
+    private val searchesCache: Cache<String, Any>,
+    private val routeSearchesCache: Cache<String, Any>
 ) {
     private val log = LoggerFactory.getLogger(CacheService::class.java)
     
     // Mutexes to prevent thundering herd on cache misses
     private val routesMutex = Mutex()
     private val stationsMutex = Mutex()
+    private val routeSearchMutexes = mutableMapOf<String, Mutex>()
+    private val mutexLock = Mutex()
 
     companion object {
         private const val ROUTES_KEY = "routes"
         private const val STATIONS_KEY = "stations"
+    }
+    
+    /**
+     * Generates a cache key for route-based search caching.
+     * Format: "origin-destination-date-adults-children-infants"
+     */
+    fun generateRouteSearchKey(request: FlightSearchRequest): String {
+        return "${request.origin.value}-${request.destination.value}-${request.departureDate}-${request.passengers.adults}-${request.passengers.children}-${request.passengers.infants}"
+    }
+    
+    /**
+     * Gets or creates a mutex for a specific route search key.
+     * Prevents thundering herd when multiple users search the same route simultaneously.
+     */
+    private suspend fun getMutexForKey(key: String): Mutex {
+        return mutexLock.withLock {
+            routeSearchMutexes.getOrPut(key) { Mutex() }
+        }
+    }
+    
+    /**
+     * Gets a cached search result by route, or fetches it using the suspend provider if not cached.
+     * This enables sharing cached results across different users searching the same route.
+     * 
+     * @param request The search request to use as cache key
+     * @param fetcher Suspend function to fetch the result if not in cache
+     * @return The FlightResponse
+     */
+    suspend fun getRouteSearchSuspend(
+        request: FlightSearchRequest,
+        fetcher: suspend () -> FlightResponse
+    ): FlightResponse {
+        val key = generateRouteSearchKey(request)
+        
+        // Fast path: check cache without lock
+        routeSearchesCache.getIfPresent(key)?.let {
+            log.debug("Route search cache HIT for key=$key")
+            @Suppress("UNCHECKED_CAST")
+            return it as FlightResponse
+        }
+        
+        // Slow path: acquire lock for this specific key and double-check
+        val mutex = getMutexForKey(key)
+        return mutex.withLock {
+            routeSearchesCache.getIfPresent(key)?.let {
+                log.debug("Route search cache HIT (after lock) for key=$key")
+                @Suppress("UNCHECKED_CAST")
+                return@withLock it as FlightResponse
+            }
+            
+            log.info("Route search cache MISS for key=$key, fetching from provider")
+            val result = fetcher()
+            routeSearchesCache.put(key, result)
+            
+            // Also cache by searchId for booking validation
+            cacheSearchResult(result.searchId, result)
+            
+            result
+        }
     }
 
     /**
@@ -144,6 +210,7 @@ class CacheService(
         routesCache.invalidateAll()
         stationsCache.invalidateAll()
         searchesCache.invalidateAll()
+        routeSearchesCache.invalidateAll()
     }
 
     /**
@@ -154,7 +221,9 @@ class CacheService(
             routeMapHitRate = routesCache.stats().hitRate(),
             stationsHitRate = stationsCache.stats().hitRate(),
             searchHitRate = searchesCache.stats().hitRate(),
-            searchSize = searchesCache.estimatedSize()
+            searchSize = searchesCache.estimatedSize(),
+            routeSearchHitRate = routeSearchesCache.stats().hitRate(),
+            routeSearchSize = routeSearchesCache.estimatedSize()
         )
     }
 }
@@ -166,5 +235,7 @@ data class CacheStats(
     val routeMapHitRate: Double,
     val stationsHitRate: Double,
     val searchHitRate: Double,
-    val searchSize: Long
+    val searchSize: Long,
+    val routeSearchHitRate: Double = 0.0,
+    val routeSearchSize: Long = 0
 )

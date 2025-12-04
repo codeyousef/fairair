@@ -19,8 +19,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.fairair.app.api.LowFareDateDto
 import com.fairair.app.ui.theme.VelocityColors
 import com.fairair.app.ui.theme.VelocityTheme
 import kotlinx.datetime.*
@@ -34,18 +38,25 @@ import kotlinx.datetime.*
  * - Selected date highlighting
  * - Past dates disabled
  * - Current date indicator
+ * - Optional price display for each date
  *
  * @param title The title to display at the top
  * @param selectedDate The currently selected date, if any
+ * @param lowFares Optional map of date to low fare data for price display
+ * @param isLoadingPrices Whether prices are currently being loaded
  * @param onSelect Callback when a date is selected
  * @param onDismiss Callback when the sheet is dismissed
+ * @param onMonthChange Callback when the displayed month changes (for fetching prices)
  */
 @Composable
 fun DateSelectionSheet(
     title: String,
     selectedDate: LocalDate?,
+    lowFares: Map<LocalDate, LowFareDateDto> = emptyMap(),
+    isLoadingPrices: Boolean = false,
     onSelect: (LocalDate) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onMonthChange: ((year: Int, month: Int) -> Unit)? = null
 ) {
     val typography = VelocityTheme.typography
     val today = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date }
@@ -53,11 +64,16 @@ fun DateSelectionSheet(
     var displayedMonth by remember {
         mutableStateOf(selectedDate ?: today)
     }
+    
+    // Notify when month changes
+    LaunchedEffect(displayedMonth) {
+        onMonthChange?.invoke(displayedMonth.year, displayedMonth.monthNumber)
+    }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.7f),
+            .fillMaxHeight(0.75f),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         color = VelocityColors.BackgroundDeep
     ) {
@@ -109,10 +125,20 @@ fun DateSelectionSheet(
                     )
                 }
 
-                Text(
-                    text = formatMonthYear(displayedMonth),
-                    style = typography.body.copy(color = VelocityColors.TextMain)
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = formatMonthYear(displayedMonth),
+                        style = typography.body.copy(color = VelocityColors.TextMain)
+                    )
+                    if (isLoadingPrices) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            modifier = Modifier.width(100.dp).height(2.dp),
+                            color = VelocityColors.Accent,
+                            trackColor = VelocityColors.GlassBg
+                        )
+                    }
+                }
 
                 IconButton(
                     onClick = {
@@ -133,7 +159,7 @@ fun DateSelectionSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat").forEach { day ->
@@ -156,12 +182,12 @@ fun DateSelectionSheet(
                 columns = GridCells.Fixed(7),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 // Empty cells for days before the first of the month
                 items(firstDayOfWeek) {
-                    Box(modifier = Modifier.aspectRatio(1f))
+                    Box(modifier = Modifier.aspectRatio(0.7f))
                 }
 
                 // Day cells
@@ -171,12 +197,15 @@ fun DateSelectionSheet(
                     val isSelected = date == selectedDate
                     val isToday = date == today
                     val isPast = date < today
+                    val lowFare = lowFares[date]
 
-                    DayCell(
+                    DayCellWithPrice(
                         day = day,
                         isSelected = isSelected,
                         isToday = isToday,
                         isPast = isPast,
+                        lowFare = lowFare,
+                        showPrices = lowFares.isNotEmpty(),
                         onClick = {
                             if (!isPast) {
                                 onSelect(date)
@@ -186,7 +215,138 @@ fun DateSelectionSheet(
                     )
                 }
             }
+            
+            // Legend if prices are shown
+            if (lowFares.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    LegendItem(color = VelocityColors.PriceLow, label = "Low")
+                    Spacer(modifier = Modifier.width(16.dp))
+                    LegendItem(color = VelocityColors.PriceMedium, label = "Medium")
+                    Spacer(modifier = Modifier.width(16.dp))
+                    LegendItem(color = VelocityColors.PriceHigh, label = "High")
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun LegendItem(color: Color, label: String) {
+    val typography = VelocityTheme.typography
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(color, CircleShape)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = label,
+            style = typography.labelSmall.copy(fontSize = 10.sp)
+        )
+    }
+}
+
+@Composable
+private fun DayCellWithPrice(
+    day: Int,
+    isSelected: Boolean,
+    isToday: Boolean,
+    isPast: Boolean,
+    lowFare: LowFareDateDto?,
+    showPrices: Boolean,
+    onClick: () -> Unit
+) {
+    val typography = VelocityTheme.typography
+
+    val backgroundColor = when {
+        isSelected -> VelocityColors.Accent
+        isToday -> VelocityColors.GlassBg
+        else -> Color.Transparent
+    }
+
+    val textColor = when {
+        isSelected -> VelocityColors.BackgroundDeep
+        isPast -> VelocityColors.Disabled
+        lowFare?.available == false -> VelocityColors.Disabled
+        else -> VelocityColors.TextMain
+    }
+    
+    // Determine price color based on relative price
+    val priceColor = when {
+        isPast -> VelocityColors.Disabled
+        lowFare == null -> VelocityColors.TextMuted
+        !lowFare.available -> VelocityColors.Disabled
+        isSelected -> VelocityColors.BackgroundDeep
+        else -> getPriceColor(lowFare.priceMinor)
+    }
+
+    Column(
+        modifier = Modifier
+            .aspectRatio(0.7f)
+            .padding(2.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(backgroundColor)
+            .pointerHoverIcon(if (!isPast && lowFare?.available != false) PointerIcon.Hand else PointerIcon.Default)
+            .clickable(enabled = !isPast && lowFare?.available != false, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = day.toString(),
+            style = typography.body.copy(color = textColor),
+            textAlign = TextAlign.Center
+        )
+        
+        if (showPrices) {
+            val priceText = when {
+                isPast -> ""
+                lowFare == null -> ""
+                !lowFare.available -> "—"
+                lowFare.priceFormatted != null -> {
+                    // Extract just the number part (e.g., "350" from "350.00 SAR")
+                    lowFare.priceFormatted.split(" ").firstOrNull()?.split(".")?.firstOrNull() ?: ""
+                }
+                else -> ""
+            }
+            
+            if (priceText.isNotEmpty()) {
+                Text(
+                    text = priceText,
+                    style = typography.labelSmall.copy(
+                        fontSize = 9.sp,
+                        color = priceColor
+                    ),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Returns a color based on the price level.
+ * Uses a simple heuristic based on typical fare ranges.
+ */
+private fun getPriceColor(priceMinor: Long?): Color {
+    if (priceMinor == null) return VelocityColors.TextMuted
+    
+    // Price in major units (e.g., SAR)
+    val price = priceMinor / 100
+    
+    return when {
+        price < 400 -> VelocityColors.PriceLow      // Low/cheap
+        price < 600 -> VelocityColors.PriceMedium   // Medium
+        else -> VelocityColors.PriceHigh            // High/expensive
     }
 }
 
@@ -203,7 +363,7 @@ private fun DayCell(
     val backgroundColor = when {
         isSelected -> VelocityColors.Accent
         isToday -> VelocityColors.GlassBg
-        else -> androidx.compose.ui.graphics.Color.Transparent
+        else -> Color.Transparent
     }
 
     val textColor = when {
@@ -258,6 +418,15 @@ private fun getFirstDayOfWeek(date: LocalDate): Int {
 
 /**
  * Displays the date selection as a modal bottom sheet.
+ * 
+ * @param isVisible Whether the sheet is visible
+ * @param title The title to display
+ * @param selectedDate The currently selected date
+ * @param lowFares Map of date to low fare data for price display
+ * @param isLoadingPrices Whether prices are currently being loaded
+ * @param onSelect Callback when a date is selected
+ * @param onDismiss Callback when the sheet is dismissed
+ * @param onMonthChange Callback when the displayed month changes
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -265,8 +434,11 @@ fun DateSelectionBottomSheet(
     isVisible: Boolean,
     title: String,
     selectedDate: LocalDate?,
+    lowFares: Map<LocalDate, LowFareDateDto> = emptyMap(),
+    isLoadingPrices: Boolean = false,
     onSelect: (LocalDate) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onMonthChange: ((year: Int, month: Int) -> Unit)? = null
 ) {
     if (isVisible) {
         ModalBottomSheet(
@@ -286,8 +458,11 @@ fun DateSelectionBottomSheet(
             DateSelectionSheet(
                 title = title,
                 selectedDate = selectedDate,
+                lowFares = lowFares,
+                isLoadingPrices = isLoadingPrices,
                 onSelect = onSelect,
-                onDismiss = onDismiss
+                onDismiss = onDismiss,
+                onMonthChange = onMonthChange
             )
         }
     }

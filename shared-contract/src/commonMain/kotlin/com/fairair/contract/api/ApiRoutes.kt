@@ -68,6 +68,20 @@ object ApiRoutes {
          * Cache: 24 hours
          */
         const val STATIONS = "$BASE/stations"
+        
+        /**
+         * GET: Retrieve valid destinations for a given origin.
+         * Path param: {origin} - Origin airport code (e.g., "JED")
+         * Response: List<Station>
+         */
+        const val DESTINATIONS = "$BASE/destinations"
+        
+        /**
+         * Constructs the URL for retrieving destinations for a specific origin.
+         * @param origin The origin airport code
+         * @return The full API path
+         */
+        fun destinationsFor(origin: String): String = "$DESTINATIONS/$origin"
     }
 
     /**
@@ -83,9 +97,38 @@ object ApiRoutes {
          * POST: Search for available flights.
          * Request: FlightSearchRequest
          * Response: FlightResponse
-         * Cache: 5 minutes
+         * Cache: 5 minutes (shared across users for same route)
          */
         const val FLIGHTS = BASE
+        
+        /**
+         * GET: Get lowest fare prices for a date range.
+         * Query params: origin, destination, startDate, endDate, adults, children, infants
+         * Response: LowFaresResponse with price per date
+         * Cache: 5 minutes per date
+         */
+        const val LOW_FARES = "$BASE/low-fares"
+        
+        /**
+         * Constructs the URL for fetching low fares.
+         * @param origin Origin airport code
+         * @param destination Destination airport code
+         * @param startDate Start date (ISO format)
+         * @param endDate End date (ISO format)
+         * @param adults Number of adults (default 1)
+         * @param children Number of children (default 0)
+         * @param infants Number of infants (default 0)
+         * @return The full API path with query parameters
+         */
+        fun lowFaresUrl(
+            origin: String,
+            destination: String,
+            startDate: String,
+            endDate: String,
+            adults: Int = 1,
+            children: Int = 0,
+            infants: Int = 0
+        ): String = "$LOW_FARES?origin=$origin&destination=$destination&startDate=$startDate&endDate=$endDate&adults=$adults&children=$children&infants=$infants"
     }
 
     /**

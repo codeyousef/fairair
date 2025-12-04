@@ -4,6 +4,7 @@ import com.fairair.contract.api.ApiRoutes
 import com.fairair.contract.model.*
 import com.fairair.service.FlightService
 import com.fairair.service.InvalidRouteException
+import com.fairair.service.LowFareDate
 import kotlinx.datetime.LocalDate
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -25,6 +26,7 @@ class SearchController(
      *
      * Searches for available flights based on the provided criteria.
      * Results are cached for 5 minutes using the returned searchId.
+     * Route-based caching shares results across users searching the same route.
      *
      * @param request Search criteria including origin, destination, date, and passengers
      * @return FlightResponse containing available flights and searchId
@@ -45,6 +47,60 @@ class SearchController(
             log.warn("Validation error: ${e.message}")
             ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(SearchErrorResponse("VALIDATION_ERROR", e.message ?: "Validation failed"))
+        }
+    }
+    
+    /**
+     * GET /api/v1/search/low-fares
+     *
+     * Retrieves the lowest fare prices for a date range.
+     * Useful for calendar displays showing price variations.
+     * Results are cached per date to minimize backend calls.
+     *
+     * @param origin Origin airport code (e.g., "JED")
+     * @param destination Destination airport code (e.g., "RUH")
+     * @param startDate First date to check (ISO format: YYYY-MM-DD)
+     * @param endDate Last date to check (ISO format: YYYY-MM-DD)
+     * @param adults Number of adult passengers (default: 1)
+     * @param children Number of child passengers (default: 0)
+     * @param infants Number of infant passengers (default: 0)
+     * @return List of LowFareDateDto for each date in range
+     */
+    @GetMapping("/low-fares")
+    suspend fun getLowFares(
+        @RequestParam origin: String,
+        @RequestParam destination: String,
+        @RequestParam startDate: String,
+        @RequestParam endDate: String,
+        @RequestParam(defaultValue = "1") adults: Int,
+        @RequestParam(defaultValue = "0") children: Int,
+        @RequestParam(defaultValue = "0") infants: Int
+    ): ResponseEntity<Any> {
+        log.info("GET /search/low-fares: $origin -> $destination from $startDate to $endDate")
+        
+        return try {
+            val passengers = PassengerCounts(adults, children, infants)
+            val lowFares = flightService.getLowFaresForDateRange(
+                origin = AirportCode(origin),
+                destination = AirportCode(destination),
+                startDate = LocalDate.parse(startDate),
+                endDate = LocalDate.parse(endDate),
+                passengers = passengers
+            )
+            
+            ResponseEntity.ok(LowFaresResponseDto(
+                origin = origin,
+                destination = destination,
+                dates = lowFares.map { LowFareDateDto.from(it) }
+            ))
+        } catch (e: InvalidRouteException) {
+            log.warn("Invalid route: ${e.message}")
+            ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(SearchErrorResponse("INVALID_ROUTE", e.message ?: "Invalid route"))
+        } catch (e: Exception) {
+            log.error("Error fetching low fares: ${e.message}", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(SearchErrorResponse("SERVER_ERROR", "Failed to fetch low fares"))
         }
     }
 }
@@ -205,3 +261,46 @@ data class SearchErrorResponse(
     val code: String,
     val message: String
 )
+
+/**
+ * Response DTO for low-fare calendar.
+ */
+data class LowFaresResponseDto(
+    val origin: String,
+    val destination: String,
+    val dates: List<LowFareDateDto>
+)
+
+/**
+ * DTO for a single date's lowest fare.
+ */
+data class LowFareDateDto(
+    /** The date in ISO format (YYYY-MM-DD) */
+    val date: String,
+    /** The lowest fare price in minor units, or null if no flights */
+    val priceMinor: Long?,
+    /** Formatted price display (e.g., "350 SAR"), or null */
+    val priceFormatted: String?,
+    /** Currency code */
+    val currency: String?,
+    /** The fare family code of the lowest fare */
+    val fareFamily: String?,
+    /** Number of flights available on this date */
+    val flightsAvailable: Int,
+    /** Whether flights are available on this date */
+    val available: Boolean
+) {
+    companion object {
+        fun from(lowFareDate: LowFareDate): LowFareDateDto {
+            return LowFareDateDto(
+                date = lowFareDate.date.toString(),
+                priceMinor = lowFareDate.lowestPrice?.amountMinor,
+                priceFormatted = lowFareDate.lowestPrice?.formatAmount(),
+                currency = lowFareDate.lowestPrice?.currency?.name,
+                fareFamily = lowFareDate.fareFamily?.name,
+                flightsAvailable = lowFareDate.flightsAvailable,
+                available = lowFareDate.flightsAvailable > 0
+            )
+        }
+    }
+}

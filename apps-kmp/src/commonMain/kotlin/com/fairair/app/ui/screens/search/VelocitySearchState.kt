@@ -1,5 +1,6 @@
 package com.fairair.app.ui.screens.search
 
+import com.fairair.app.api.LowFareDateDto
 import com.fairair.app.api.StationDto
 import com.fairair.app.ui.components.velocity.DestinationTheme
 import kotlinx.datetime.LocalDate
@@ -72,9 +73,25 @@ data class VelocitySearchState(
     val isLoading: Boolean = true,
 
     /**
+     * Whether destinations are being fetched from the backend.
+     */
+    val loadingDestinations: Boolean = false,
+
+    /**
      * Whether a search is currently in progress.
      */
     val isSearching: Boolean = false,
+    
+    /**
+     * Low fare prices by date for calendar display.
+     * Key is LocalDate, value is the low fare data for that date.
+     */
+    val lowFares: Map<LocalDate, LowFareDateDto> = emptyMap(),
+    
+    /**
+     * Whether low fares are currently being loaded.
+     */
+    val loadingLowFares: Boolean = false,
 
     /**
      * Error message if something went wrong.

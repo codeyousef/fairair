@@ -29,6 +29,7 @@ import kotlinx.datetime.LocalDate
  * - Bottom sheets for airport, date, and passenger selection
  * - Circular launch button with glow effect
  * - RTL support for Arabic
+ * - Low-fare calendar with prices on date picker
  *
  * @param state Current search state
  * @param strings Localized strings
@@ -41,6 +42,7 @@ import kotlinx.datetime.LocalDate
  * @param onSearch Callback when search is initiated
  * @param onNavigateToSettings Callback to navigate to settings
  * @param onNavigateToSavedBookings Callback to navigate to saved bookings
+ * @param onMonthChange Callback when month changes in date picker (for fetching low fares)
  */
 @Composable
 fun VelocitySearchScreen(
@@ -56,6 +58,7 @@ fun VelocitySearchScreen(
     onSearch: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToSavedBookings: () -> Unit,
+    onMonthChange: ((year: Int, month: Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     VelocityThemeWithBackground(
@@ -179,11 +182,14 @@ fun VelocitySearchScreen(
             isVisible = state.activeField == SearchField.DATE,
             title = strings.selectDate,
             selectedDate = state.departureDate,
+            lowFares = state.lowFares,
+            isLoadingPrices = state.loadingLowFares,
             onSelect = { date ->
                 onDateSelect(date)
                 onFieldActivate(null)
             },
-            onDismiss = { onFieldActivate(null) }
+            onDismiss = { onFieldActivate(null) },
+            onMonthChange = onMonthChange
         )
 
         PassengerSelectionBottomSheet(

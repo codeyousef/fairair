@@ -11,7 +11,8 @@ import java.time.Duration
  *
  * Provides caching for:
  * - Routes and stations: 24-hour TTL
- * - Search results: 5-minute TTL
+ * - Search results by searchId: 5-minute TTL (for booking validation)
+ * - Route searches: 5-minute TTL (for sharing results across users)
  *
  * Uses Caffeine directly without Spring's @Cacheable abstraction
  * to match the Quarkus implementation's manual cache management.
@@ -24,6 +25,7 @@ class CacheConfig(
         const val ROUTES_CACHE = "routes"
         const val STATIONS_CACHE = "stations"
         const val SEARCHES_CACHE = "searches"
+        const val ROUTE_SEARCHES_CACHE = "route-searches"
     }
 
     @Bean
@@ -40,11 +42,27 @@ class CacheConfig(
     fun searchesCache(): Cache<String, Any> {
         return buildCache(Duration.ofSeconds(fairairProperties.cache.searchTtl))
     }
+    
+    /**
+     * Cache for route-based search results.
+     * Key: "origin-destination-date-adults-children-infants"
+     * 
+     * This cache enables sharing search results across different users
+     * who search for the same route, reducing backend load and improving
+     * response times.
+     */
+    @Bean
+    fun routeSearchesCache(): Cache<String, Any> {
+        return buildCache(
+            ttl = Duration.ofSeconds(fairairProperties.cache.searchTtl),
+            maxSize = 5000 // Larger cache for route combinations
+        )
+    }
 
-    private fun buildCache(ttl: Duration): Cache<String, Any> {
+    private fun buildCache(ttl: Duration, maxSize: Long = 1000): Cache<String, Any> {
         return Caffeine.newBuilder()
             .expireAfterWrite(ttl)
-            .maximumSize(1000)
+            .maximumSize(maxSize)
             .recordStats()
             .build()
     }

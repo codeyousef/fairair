@@ -1,11 +1,14 @@
 package com.fairair.controller
 
 import com.fairair.contract.api.ApiRoutes
+import com.fairair.contract.model.AirportCode
 import com.fairair.contract.model.RouteMap
 import com.fairair.contract.model.Station
 import com.fairair.service.FlightService
 import org.slf4j.LoggerFactory
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -47,6 +50,37 @@ class ConfigController(
     suspend fun getStations(): List<StationResponse> {
         log.info("GET /config/stations")
         return flightService.getStations().map { StationResponse.from(it) }
+    }
+    
+    /**
+     * GET /api/v1/config/destinations/{origin}
+     *
+     * Returns all valid destination stations for a given origin airport.
+     * This filters the route map and returns full station details.
+     *
+     * @param origin The origin airport code (e.g., "JED", "RUH")
+     * @return List of destination stations, or empty list if origin has no routes
+     */
+    @GetMapping("/destinations/{origin}")
+    suspend fun getDestinationsForOrigin(@PathVariable origin: String): ResponseEntity<List<StationResponse>> {
+        log.info("GET /config/destinations/$origin")
+        
+        val originCode = try {
+            AirportCode(origin.uppercase())
+        } catch (e: Exception) {
+            log.warn("Invalid origin code: $origin")
+            return ResponseEntity.badRequest().build()
+        }
+        
+        val routeMap = flightService.getRouteMap()
+        val destinationCodes = routeMap.routes[originCode] ?: emptyList()
+        
+        val allStations = flightService.getStations()
+        val destinationStations = allStations.filter { station ->
+            destinationCodes.any { it.value == station.code.value }
+        }
+        
+        return ResponseEntity.ok(destinationStations.map { StationResponse.from(it) })
     }
 }
 

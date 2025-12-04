@@ -308,29 +308,45 @@ class SearchScreenModel(
 
     /**
      * Selects an origin airport (Velocity UI).
+     * Fetches valid destinations from the backend.
      */
     fun selectVelocityOrigin(station: StationDto) {
+        // Immediately update origin selection with loading state
         _velocityState.update { state ->
-            val validDestinationCodes = state.routeMap[station.code] ?: emptyList()
-            val availableDestinations = state.availableOrigins.filter { it.code in validDestinationCodes }
-
-            // If current destination is not in the new valid destinations list, clear it
-            val currentDestination = state.selectedDestination
-            val newDestination = if (currentDestination != null &&
-                validDestinationCodes.contains(currentDestination.code)) {
-                currentDestination
-            } else {
-                null
-            }
-
             state.copy(
                 selectedOrigin = station,
-                selectedDestination = newDestination,
-                availableDestinations = availableDestinations,
-                // Clear destination background if destination was cleared
-                destinationBackground = if (newDestination != null) state.destinationBackground else null
+                selectedDestination = null, // Clear destination while loading
+                availableDestinations = emptyList(), // Clear destinations while fetching
+                destinationBackground = null,
+                loadingDestinations = true
             )
         }
+
+        // Fetch valid destinations from backend
+        screenModelScope.launch {
+            when (val result = apiClient.getDestinationsForOrigin(station.code)) {
+                is ApiResult.Success -> {
+                    _velocityState.update { state ->
+                        state.copy(
+                            availableDestinations = result.data,
+                            loadingDestinations = false
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    // On error, fall back to filtering from available origins using local route map
+                    _velocityState.update { state ->
+                        val validDestinationCodes = state.routeMap[station.code] ?: emptyList()
+                        val fallbackDestinations = state.availableOrigins.filter { it.code in validDestinationCodes }
+                        state.copy(
+                            availableDestinations = fallbackDestinations,
+                            loadingDestinations = false
+                        )
+                    }
+                }
+            }
+        }
+
         // Also update legacy state for compatibility
         selectOrigin(station)
     }

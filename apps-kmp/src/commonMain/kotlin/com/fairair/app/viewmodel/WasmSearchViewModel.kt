@@ -83,39 +83,57 @@ class WasmSearchViewModel(
 
     /**
      * Selects an origin airport (Velocity UI).
+     * Fetches valid destinations from the backend.
      */
     fun selectVelocityOrigin(station: StationDto) {
+        // Immediately update origin selection with loading state
         _velocityState.update { state ->
-            val validDestinationCodes = state.routeMap[station.code] ?: emptyList()
-            val availableDestinations = state.availableOrigins.filter { it.code in validDestinationCodes }
-
-            // If current destination is not in the new valid destinations list, clear it
-            val currentDestination = state.selectedDestination
-            val newDestination = if (currentDestination != null &&
-                validDestinationCodes.contains(currentDestination.code)) {
-                currentDestination
-            } else {
-                null
-            }
-
             state.copy(
                 selectedOrigin = station,
-                selectedDestination = newDestination,
-                availableDestinations = availableDestinations,
-                // Clear destination background if destination was cleared
-                destinationBackground = if (newDestination != null) state.destinationBackground else null
+                selectedDestination = null, // Clear destination while loading
+                availableDestinations = emptyList(), // Clear destinations while fetching
+                destinationBackground = null,
+                loadingDestinations = true
             )
+        }
+
+        // Fetch valid destinations from backend
+        scope.launch {
+            when (val result = apiClient.getDestinationsForOrigin(station.code)) {
+                is ApiResult.Success -> {
+                    _velocityState.update { state ->
+                        state.copy(
+                            availableDestinations = result.data,
+                            loadingDestinations = false
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    // On error, fall back to filtering from available origins using local route map
+                    _velocityState.update { state ->
+                        val validDestinationCodes = state.routeMap[station.code] ?: emptyList()
+                        val fallbackDestinations = state.availableOrigins.filter { it.code in validDestinationCodes }
+                        state.copy(
+                            availableDestinations = fallbackDestinations,
+                            loadingDestinations = false
+                        )
+                    }
+                }
+            }
         }
     }
 
     /**
      * Selects a destination airport (Velocity UI).
+     * Also triggers fetching low fares if both origin and destination are selected.
      */
     fun selectVelocityDestination(station: StationDto) {
         _velocityState.update { state ->
             state.copy(
                 selectedDestination = station,
-                destinationBackground = DestinationTheme.forDestination(station.code)
+                destinationBackground = DestinationTheme.forDestination(station.code),
+                // Clear existing low fares when destination changes
+                lowFares = emptyMap()
             )
         }
     }
@@ -125,6 +143,74 @@ class WasmSearchViewModel(
      */
     fun selectVelocityDate(date: LocalDate) {
         _velocityState.update { it.copy(departureDate = date) }
+    }
+    
+    /**
+     * Fetches low fare prices for a given month.
+     * Called when the date picker is opened or when the user navigates to a different month.
+     * 
+     * @param year The year to fetch prices for
+     * @param month The month number (1-12) to fetch prices for
+     */
+    fun fetchLowFaresForMonth(year: Int, month: Int) {
+        val state = _velocityState.value
+        val origin = state.selectedOrigin ?: return
+        val destination = state.selectedDestination ?: return
+        
+        // Calculate start and end dates for the month
+        val startDate = LocalDate(year, month, 1)
+        val daysInMonth = when (month) {
+            1, 3, 5, 7, 8, 10, 12 -> 31
+            4, 6, 9, 11 -> 30
+            2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
+            else -> 30
+        }
+        val endDate = LocalDate(year, month, daysInMonth)
+        
+        // Don't fetch if we already have data for this range
+        val hasDataForMonth = state.lowFares.keys.any { 
+            it.year == year && it.monthNumber == month 
+        }
+        if (hasDataForMonth && !state.lowFares.isEmpty()) {
+            return
+        }
+        
+        _velocityState.update { it.copy(loadingLowFares = true) }
+        
+        scope.launch {
+            val result = apiClient.getLowFares(
+                origin = origin.code,
+                destination = destination.code,
+                startDate = startDate.toString(),
+                endDate = endDate.toString(),
+                adults = state.adultsCount,
+                children = state.childrenCount,
+                infants = state.infantsCount
+            )
+            
+            when (result) {
+                is ApiResult.Success -> {
+                    _velocityState.update { currentState ->
+                        val newLowFares = currentState.lowFares.toMutableMap()
+                        result.data.dates.forEach { dto ->
+                            try {
+                                val date = LocalDate.parse(dto.date)
+                                newLowFares[date] = dto
+                            } catch (e: Exception) {
+                                // Skip invalid dates
+                            }
+                        }
+                        currentState.copy(
+                            lowFares = newLowFares,
+                            loadingLowFares = false
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    _velocityState.update { it.copy(loadingLowFares = false) }
+                }
+            }
+        }
     }
 
     /**

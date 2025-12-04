@@ -81,6 +81,17 @@ class FairairApiClient(
     }
 
     /**
+     * Fetches available destinations for a given origin.
+     * @param origin Origin airport code
+     * @return List of StationDto for valid destinations
+     */
+    suspend fun getDestinationsForOrigin(origin: String): ApiResult<List<StationDto>> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Config.destinationsFor(origin)}").body()
+        }
+    }
+
+    /**
      * Searches for flights based on the given criteria.
      * @param request Search parameters
      * @return FlightSearchResponseDto with available flights
@@ -91,6 +102,34 @@ class FairairApiClient(
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }.body()
+        }
+    }
+    
+    /**
+     * Fetches lowest fare prices for a date range.
+     * Used for calendar displays showing price variations.
+     * 
+     * @param origin Origin airport code
+     * @param destination Destination airport code
+     * @param startDate Start date (ISO format: YYYY-MM-DD)
+     * @param endDate End date (ISO format: YYYY-MM-DD)
+     * @param adults Number of adult passengers
+     * @param children Number of child passengers
+     * @param infants Number of infant passengers
+     * @return LowFaresResponseDto with price per date
+     */
+    suspend fun getLowFares(
+        origin: String,
+        destination: String,
+        startDate: String,
+        endDate: String,
+        adults: Int = 1,
+        children: Int = 0,
+        infants: Int = 0
+    ): ApiResult<LowFaresResponseDto> {
+        return safeApiCall {
+            val url = "$baseUrl${ApiRoutes.Search.lowFaresUrl(origin, destination, startDate, endDate, adults, children, infants)}"
+            httpClient.get(url).body()
         }
     }
 
@@ -430,6 +469,37 @@ data class PassengerCountsDto(
 data class FlightSearchResponseDto(
     val flights: List<FlightDto>,
     val searchId: String = ""
+)
+
+/**
+ * Response DTO for low-fare calendar.
+ */
+@Serializable
+data class LowFaresResponseDto(
+    val origin: String,
+    val destination: String,
+    val dates: List<LowFareDateDto>
+)
+
+/**
+ * DTO for a single date's lowest fare.
+ */
+@Serializable
+data class LowFareDateDto(
+    /** The date in ISO format (YYYY-MM-DD) */
+    val date: String,
+    /** The lowest fare price in minor units, or null if no flights */
+    val priceMinor: Long? = null,
+    /** Formatted price display (e.g., "350 SAR"), or null */
+    val priceFormatted: String? = null,
+    /** Currency code */
+    val currency: String? = null,
+    /** The fare family code of the lowest fare */
+    val fareFamily: String? = null,
+    /** Number of flights available on this date */
+    val flightsAvailable: Int = 0,
+    /** Whether flights are available on this date */
+    val available: Boolean = false
 )
 
 /**
