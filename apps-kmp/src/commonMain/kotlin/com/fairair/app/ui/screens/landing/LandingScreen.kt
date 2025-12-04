@@ -36,6 +36,12 @@ private val MaxCardWidth = 800.dp
  * @param onLogoutClick Called when sign out is clicked
  * @param onMyBookingsClick Called when my bookings is clicked
  * @param onSettingsClick Called when settings is clicked
+ * @param onCheckInClick Called when check-in is clicked
+ * @param onManageBookingClick Called when manage booking is clicked
+ * @param onMembershipClick Called when membership is clicked
+ * @param onHotelsClick Called when hotels external service is clicked
+ * @param onCarRentalClick Called when car rental external service is clicked
+ * @param onHelpClick Called when help center is clicked
  * @param onDealClick Called when a deal is clicked, with origin and destination codes
  * @param onDestinationClick Called when a destination is clicked, with destination code
  * @param userName The logged in user's name, or null if not logged in
@@ -48,6 +54,12 @@ fun LandingScreen(
     onLogoutClick: () -> Unit = {},
     onMyBookingsClick: () -> Unit = {},
     onSettingsClick: () -> Unit,
+    onCheckInClick: () -> Unit = {},
+    onManageBookingClick: () -> Unit = {},
+    onMembershipClick: () -> Unit = {},
+    onHotelsClick: () -> Unit = {},
+    onCarRentalClick: () -> Unit = {},
+    onHelpClick: () -> Unit = {},
     onDealClick: ((origin: String, destination: String) -> Unit)? = null,
     onDestinationClick: ((destination: String) -> Unit)? = null,
     userName: String? = null,
@@ -80,6 +92,18 @@ fun LandingScreen(
             
             Spacer(modifier = Modifier.height(64.dp))
             
+            // Services Section - Quick Links
+            ServicesSection(
+                onCheckInClick = onCheckInClick,
+                onManageBookingClick = onManageBookingClick,
+                onMembershipClick = onMembershipClick,
+                onHotelsClick = onHotelsClick,
+                onCarRentalClick = onCarRentalClick,
+                onHelpClick = onHelpClick
+            )
+            
+            Spacer(modifier = Modifier.height(64.dp))
+            
             // Promotional Deals
             DealsSection(onDealClick = onDealClick)
             
@@ -96,7 +120,11 @@ fun LandingScreen(
             Spacer(modifier = Modifier.height(64.dp))
             
             // Footer
-            LandingFooter()
+            LandingFooter(
+                onCheckInClick = onCheckInClick,
+                onManageBookingClick = onManageBookingClick,
+                onMembershipClick = onMembershipClick
+            )
         }
     }
 }
@@ -325,6 +353,200 @@ private fun DealsSection(onDealClick: ((String, String) -> Unit)?) {
                     } else null
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ServicesSection(
+    onCheckInClick: () -> Unit,
+    onManageBookingClick: () -> Unit,
+    onMembershipClick: () -> Unit,
+    onHotelsClick: () -> Unit,
+    onCarRentalClick: () -> Unit,
+    onHelpClick: () -> Unit
+) {
+    val strings = LocalStrings.current
+    
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = MaxContentWidth)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+        ) {
+            SectionHeader(
+                title = "Quick Services",
+                subtitle = "Everything you need, just a tap away"
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ServiceCard(
+                    icon = Icons.Default.Send,
+                    title = "Check-In",
+                    description = "Check in online 48h before departure",
+                    onClick = onCheckInClick,
+                    modifier = Modifier.weight(1f)
+                )
+                ServiceCard(
+                    icon = Icons.Default.Search,
+                    title = "Manage Booking",
+                    description = "View, modify, or cancel your trip",
+                    onClick = onManageBookingClick,
+                    modifier = Modifier.weight(1f)
+                )
+                ServiceCard(
+                    icon = Icons.Default.Star,
+                    title = "Membership",
+                    description = "Unlimited flights, premium benefits",
+                    onClick = onMembershipClick,
+                    accentColor = Color(0xFFFFD700),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // External services row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ExternalServiceCard(
+                    icon = Icons.Default.Home,
+                    title = "Hotels",
+                    partner = "Booking.com",
+                    onClick = onHotelsClick,
+                    modifier = Modifier.weight(1f)
+                )
+                ExternalServiceCard(
+                    icon = Icons.Default.LocationOn,
+                    title = "Car Rental",
+                    partner = "Rentalcars.com",
+                    onClick = onCarRentalClick,
+                    modifier = Modifier.weight(1f)
+                )
+                ExternalServiceCard(
+                    icon = Icons.Default.Info,
+                    title = "Help Center",
+                    partner = "FAQs & Support",
+                    onClick = onHelpClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ServiceCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+    accentColor: Color = VelocityColors.Accent,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .pointerHoverIcon(PointerIcon.Hand)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = VelocityColors.BackgroundMid,
+        border = BorderStroke(1.dp, VelocityColors.GlassBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = accentColor.copy(alpha = 0.1f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = VelocityColors.TextMain,
+                fontWeight = FontWeight.SemiBold
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = VelocityColors.TextMuted,
+                lineHeight = 18.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExternalServiceCard(
+    icon: ImageVector,
+    title: String,
+    partner: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = VelocityColors.BackgroundMid.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, VelocityColors.GlassBorder.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = VelocityColors.TextMuted,
+                modifier = Modifier.size(24.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VelocityColors.TextMain,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "via $partner",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VelocityColors.TextMuted
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ArrowForward,
+                contentDescription = null,
+                tint = VelocityColors.TextMuted,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -645,7 +867,11 @@ private fun SectionHeader(title: String, subtitle: String) {
 }
 
 @Composable
-private fun LandingFooter() {
+private fun LandingFooter(
+    onCheckInClick: () -> Unit = {},
+    onManageBookingClick: () -> Unit = {},
+    onMembershipClick: () -> Unit = {}
+) {
     val strings = LocalStrings.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -659,69 +885,122 @@ private fun LandingFooter() {
                 modifier = Modifier
                     .widthIn(max = MaxContentWidth)
                     .fillMaxWidth()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(32.dp)
             ) {
-                // Logo
+                // Footer grid
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = "✈", fontSize = 20.sp)
+                    // Company
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "✈", fontSize = 24.sp)
+                            Text(
+                                text = strings.appName,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = VelocityColors.TextMain,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Your journey, perfected.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = VelocityColors.TextMuted
+                        )
+                    }
+                    
+                    // Quick Links
+                    Column {
+                        Text(
+                            text = "Quick Links",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = VelocityColors.TextMain,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        FooterLink("Check-In", onCheckInClick)
+                        FooterLink("Manage Booking", onManageBookingClick)
+                        FooterLink("Membership", onMembershipClick)
+                    }
+                    
+                    // Support
+                    Column {
+                        Text(
+                            text = "Support",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = VelocityColors.TextMain,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        FooterLink(strings.landingFooterHelp)
+                        FooterLink("Contact Us")
+                        FooterLink("FAQs")
+                    }
+                    
+                    // Legal
+                    Column {
+                        Text(
+                            text = "Legal",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = VelocityColors.TextMain,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        FooterLink(strings.landingFooterPrivacy)
+                        FooterLink(strings.landingFooterTerms)
+                        FooterLink(strings.landingFooterAbout)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                HorizontalDivider(color = VelocityColors.GlassBorder)
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Bottom row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = strings.appName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = VelocityColors.TextMain,
-                        fontWeight = FontWeight.Bold
+                        text = strings.landingFooterCopyright,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VelocityColors.TextMuted
+                    )
+                    
+                    Text(
+                        text = strings.landingFooterPortfolio,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VelocityColors.TextMuted.copy(alpha = 0.6f)
                     )
                 }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                // Footer links
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(32.dp)
-                ) {
-                    FooterLink(strings.landingFooterAbout)
-                    FooterLink(strings.landingFooterHelp)
-                    FooterLink(strings.landingFooterPrivacy)
-                    FooterLink(strings.landingFooterTerms)
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                HorizontalDivider(
-                    color = VelocityColors.GlassBorder,
-                    modifier = Modifier.widthIn(max = 400.dp)
-                )
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Text(
-                    text = strings.landingFooterCopyright,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VelocityColors.TextMuted
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = strings.landingFooterPortfolio,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VelocityColors.TextMuted.copy(alpha = 0.6f)
-                )
             }
         }
     }
 }
 
 @Composable
-private fun FooterLink(text: String) {
+private fun FooterLink(text: String, onClick: (() -> Unit)? = null) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
         color = VelocityColors.TextMuted,
-        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand).clickable { /* placeholder */ }
+        modifier = Modifier
+            .padding(vertical = 4.dp)
+            .then(
+                if (onClick != null) {
+                    Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)
+                } else {
+                    Modifier.pointerHoverIcon(PointerIcon.Hand).clickable { /* placeholder */ }
+                }
+            )
     )
 }
 

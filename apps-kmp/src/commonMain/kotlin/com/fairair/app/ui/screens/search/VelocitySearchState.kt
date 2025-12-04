@@ -10,6 +10,11 @@ import kotlinx.datetime.LocalDate
  */
 data class VelocitySearchState(
     /**
+     * Type of trip: one-way, round-trip, or multi-city.
+     */
+    val tripType: TripType = TripType.ROUND_TRIP,
+
+    /**
      * Currently selected origin airport.
      */
     val selectedOrigin: StationDto? = null,
@@ -23,6 +28,11 @@ data class VelocitySearchState(
      * Selected departure date.
      */
     val departureDate: LocalDate? = null,
+
+    /**
+     * Selected return date (for round-trip only).
+     */
+    val returnDate: LocalDate? = null,
 
     /**
      * Number of adult passengers (1-9).
@@ -89,9 +99,20 @@ data class VelocitySearchState(
     val lowFares: Map<LocalDate, LowFareDateDto> = emptyMap(),
     
     /**
+     * Low fare prices by date for return calendar display.
+     * Key is LocalDate, value is the low fare data for that date.
+     */
+    val returnLowFares: Map<LocalDate, LowFareDateDto> = emptyMap(),
+    
+    /**
      * Whether low fares are currently being loaded.
      */
     val loadingLowFares: Boolean = false,
+    
+    /**
+     * Whether return low fares are currently being loaded.
+     */
+    val loadingReturnLowFares: Boolean = false,
 
     /**
      * Error message if something went wrong.
@@ -99,28 +120,41 @@ data class VelocitySearchState(
     val error: String? = null
 ) {
     /**
+     * Whether this is a round-trip search.
+     */
+    val isRoundTrip: Boolean
+        get() = tripType == TripType.ROUND_TRIP
+
+    /**
      * Whether the search button should be enabled.
-     * Requires: origin, destination, and date to be selected.
+     * Requires: origin, destination, departure date to be selected.
+     * For round-trip, also requires return date.
      */
     val isSearchEnabled: Boolean
-        get() = selectedOrigin != null &&
-                selectedDestination != null &&
-                departureDate != null &&
-                !isSearching
+        get() {
+            val baseRequirements = selectedOrigin != null &&
+                    selectedDestination != null &&
+                    departureDate != null &&
+                    !isSearching
+            
+            return if (tripType == TripType.ROUND_TRIP) {
+                baseRequirements && returnDate != null
+            } else {
+                baseRequirements
+            }
+        }
 
     /**
      * Formatted departure date for display (e.g., "Dec 01").
      */
     val formattedDate: String
-        get() = departureDate?.let { date ->
-            val monthNames = listOf(
-                "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-            )
-            val month = monthNames[date.monthNumber - 1]
-            val day = date.dayOfMonth.toString().padStart(2, '0')
-            "$month $day"
-        } ?: ""
+        get() = formatDate(departureDate)
+    
+    /**
+     * Formatted return date for display (e.g., "Dec 08").
+     */
+    val formattedReturnDate: String
+        get() = formatDate(returnDate)
 
     /**
      * Total passenger count for display purposes.
@@ -168,15 +202,57 @@ data class VelocitySearchState(
      * Formatted date for Arabic display.
      */
     val formattedDateArabic: String
-        get() = departureDate?.let { date ->
+        get() = formatDateArabic(departureDate)
+    
+    /**
+     * Formatted return date for Arabic display.
+     */
+    val formattedReturnDateArabic: String
+        get() = formatDateArabic(returnDate)
+
+    /**
+     * Trip type label for display.
+     */
+    val tripTypeLabel: String
+        get() = when (tripType) {
+            TripType.ONE_WAY -> "One-way"
+            TripType.ROUND_TRIP -> "Round trip"
+            TripType.MULTI_CITY -> "Multi-city"
+        }
+    
+    /**
+     * Trip type label for Arabic display.
+     */
+    val tripTypeLabelArabic: String
+        get() = when (tripType) {
+            TripType.ONE_WAY -> "ذهاب فقط"
+            TripType.ROUND_TRIP -> "ذهاب وعودة"
+            TripType.MULTI_CITY -> "وجهات متعددة"
+        }
+
+    private fun formatDate(date: LocalDate?): String {
+        return date?.let {
+            val monthNames = listOf(
+                "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+            )
+            val month = monthNames[it.monthNumber - 1]
+            val day = it.dayOfMonth.toString().padStart(2, '0')
+            "$month $day"
+        } ?: ""
+    }
+
+    private fun formatDateArabic(date: LocalDate?): String {
+        return date?.let {
             val monthNames = listOf(
                 "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
                 "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
             )
-            val month = monthNames[date.monthNumber - 1]
-            val day = date.dayOfMonth
+            val month = monthNames[it.monthNumber - 1]
+            val day = it.dayOfMonth
             "$day $month"
         } ?: ""
+    }
 
     companion object {
         /**

@@ -192,6 +192,197 @@ class FairairApiClient(
             }.body()
         }
     }
+
+    // ============================================================================
+    // Check-In API
+    // ============================================================================
+
+    /**
+     * Looks up a booking for check-in.
+     * @param pnr The 6-character PNR code
+     * @param lastName Passenger last name
+     * @return CheckInLookupResponseDto with booking details for check-in
+     */
+    suspend fun lookupForCheckIn(pnr: String, lastName: String): ApiResult<CheckInLookupResponseDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.CheckIn.INITIATE}") {
+                contentType(ContentType.Application.Json)
+                setBody(CheckInLookupRequestDto(pnr, lastName))
+            }.body()
+        }
+    }
+
+    /**
+     * Processes check-in for selected passengers.
+     * @param request Check-in details with passenger selections
+     * @return CheckInResultDto with boarding passes
+     */
+    suspend fun processCheckIn(request: CheckInProcessRequestDto): ApiResult<CheckInResultDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.CheckIn.completeFor(request.pnr)}") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+        }
+    }
+
+    /**
+     * Retrieves a boarding pass for a checked-in passenger.
+     * @param pnr The PNR code
+     * @param passengerIndex The passenger index (0-based)
+     * @return BoardingPassDto with boarding details
+     */
+    suspend fun getBoardingPass(pnr: String, passengerIndex: Int): ApiResult<BoardingPassDto> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.CheckIn.boardingPassFor(pnr, passengerIndex)}").body()
+        }
+    }
+
+    // ============================================================================
+    // Manage Booking API
+    // ============================================================================
+
+    /**
+     * Retrieves booking details for modification.
+     * @param pnr The 6-character PNR code
+     * @param lastName Passenger last name
+     * @return ManageBookingResponseDto with full booking details
+     */
+    suspend fun retrieveBooking(pnr: String, lastName: String): ApiResult<ManageBookingResponseDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.ManageBooking.RETRIEVE}") {
+                contentType(ContentType.Application.Json)
+                setBody(RetrieveBookingRequestDto(pnr, lastName))
+            }.body()
+        }
+    }
+
+    /**
+     * Modifies a booking (updates passengers).
+     * @param pnr The PNR code
+     * @param request Modification details
+     * @return ModifyBookingResponseDto with updated booking
+     */
+    suspend fun modifyBooking(pnr: String, request: ModifyBookingRequestDto): ApiResult<ModifyBookingResponseDto> {
+        return safeApiCall {
+            httpClient.put("$baseUrl${ApiRoutes.ManageBooking.updatePassengersFor(pnr)}") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+        }
+    }
+
+    /**
+     * Cancels a booking.
+     * @param pnr The PNR code
+     * @param request Cancellation details
+     * @return CancelBookingResponseDto with refund information
+     */
+    suspend fun cancelBooking(pnr: String, request: CancelBookingRequestDto): ApiResult<CancelBookingResponseDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.ManageBooking.cancelFor(pnr)}") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+        }
+    }
+
+    // ============================================================================
+    // Membership API
+    // ============================================================================
+
+    /**
+     * Gets all available membership plans.
+     * @return List of MembershipPlanDto
+     */
+    suspend fun getMembershipPlans(): ApiResult<List<MembershipPlanDto>> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Membership.PLANS}").body()
+        }
+    }
+
+    /**
+     * Gets user's active subscription.
+     * @param authToken JWT access token
+     * @return SubscriptionDto or null if no active subscription
+     */
+    suspend fun getSubscription(authToken: String): ApiResult<SubscriptionDto?> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Membership.STATUS}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    /**
+     * Subscribes to a membership plan.
+     * @param request Subscription details with payment info
+     * @param authToken JWT access token
+     * @return SubscriptionDto with new subscription details
+     */
+    suspend fun subscribe(request: SubscribeRequestDto, authToken: String): ApiResult<SubscriptionDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.Membership.SUBSCRIBE}") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    /**
+     * Cancels current subscription.
+     * @param authToken JWT access token
+     * @return Cancellation confirmation
+     */
+    suspend fun cancelSubscription(authToken: String): ApiResult<CancelSubscriptionResponseDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.Membership.CANCEL}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    /**
+     * Gets subscription usage statistics.
+     * @param authToken JWT access token
+     * @return UsageStatsDto with usage details
+     */
+    suspend fun getUsageStats(authToken: String): ApiResult<UsageStatsDto> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Membership.USAGE}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    // ============================================================================
+    // Enhanced Ancillaries API
+    // ============================================================================
+
+    /**
+     * Gets seat map for a flight.
+     * @param flightNumber The flight number
+     * @param departureDate The departure date (ISO format)
+     * @return SeatMapDto with seat availability
+     */
+    suspend fun getSeatMap(flightNumber: String, departureDate: String): ApiResult<SeatMapDto> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Seats.mapFor(flightNumber, departureDate)}").body()
+        }
+    }
+
+    /**
+     * Gets available meal options for a flight.
+     * @param origin Origin airport code
+     * @param destination Destination airport code
+     * @return List of MealOptionDto
+     */
+    suspend fun getMealOptions(origin: String, destination: String): ApiResult<List<MealOptionDto>> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Meals.availableFor(origin, destination)}").body()
+        }
+    }
     
     /**
      * Creates a booking with optional authentication.
@@ -455,6 +646,7 @@ data class FlightSearchRequestDto(
     val origin: String,
     val destination: String,
     val departureDate: String,
+    val returnDate: String? = null,
     val passengers: PassengerCountsDto
 )
 
@@ -654,3 +846,324 @@ data class BookingConfirmationDto(
     /** Convenience property for display */
     val totalPrice: String get() = totalPaidFormatted.ifEmpty { (totalPaidMinor / 100.0).toString() }
 }
+
+// ============================================================================
+// Check-In DTOs
+// ============================================================================
+
+@Serializable
+data class CheckInLookupRequestDto(
+    val pnr: String,
+    val lastName: String
+)
+
+@Serializable
+data class CheckInLookupResponseDto(
+    val pnr: String,
+    val flight: CheckInFlightDto,
+    val passengers: List<CheckInPassengerDto>,
+    val isEligibleForCheckIn: Boolean,
+    val eligibilityMessage: String? = null
+)
+
+@Serializable
+data class CheckInFlightDto(
+    val flightNumber: String,
+    val origin: String,
+    val destination: String,
+    val departureTime: String,
+    val arrivalTime: String,
+    val departureDate: String,
+    val aircraft: String = ""
+)
+
+@Serializable
+data class CheckInPassengerDto(
+    val passengerId: String,
+    val firstName: String,
+    val lastName: String,
+    val type: String,
+    val isCheckedIn: Boolean = false,
+    val seatAssignment: String? = null,
+    val boardingGroup: String? = null
+)
+
+@Serializable
+data class CheckInProcessRequestDto(
+    val pnr: String,
+    val passengerIds: List<String>,
+    val seatPreferences: Map<String, SeatPreferenceDto> = emptyMap()
+)
+
+@Serializable
+data class SeatPreferenceDto(
+    val preferWindow: Boolean = false,
+    val preferAisle: Boolean = false,
+    val preferFront: Boolean = false
+)
+
+@Serializable
+data class CheckInResultDto(
+    val pnr: String,
+    val checkedInPassengers: List<CheckedInPassengerDto>,
+    val message: String
+)
+
+@Serializable
+data class CheckedInPassengerDto(
+    val passengerId: String,
+    val name: String,
+    val seatNumber: String,
+    val boardingGroup: String,
+    val boardingPassUrl: String? = null
+)
+
+@Serializable
+data class BoardingPassDto(
+    val pnr: String,
+    val flightNumber: String,
+    val passengerName: String,
+    val seatNumber: String,
+    val boardingGroup: String,
+    val gate: String? = null,
+    val boardingTime: String? = null,
+    val departureTime: String,
+    val origin: String,
+    val destination: String,
+    val barcodeData: String
+)
+
+// ============================================================================
+// Manage Booking DTOs
+// ============================================================================
+
+@Serializable
+data class RetrieveBookingRequestDto(
+    val pnr: String,
+    val lastName: String
+)
+
+@Serializable
+data class ManageBookingResponseDto(
+    val pnr: String,
+    val status: String,
+    val flight: ManageBookingFlightDto,
+    val passengers: List<ManageBookingPassengerDto>,
+    val ancillaries: List<BookedAncillaryDto>,
+    val payment: PaymentSummaryDto,
+    val allowedActions: List<String>
+)
+
+@Serializable
+data class ManageBookingFlightDto(
+    val flightNumber: String,
+    val origin: String,
+    val originName: String,
+    val destination: String,
+    val destinationName: String,
+    val departureTime: String,
+    val arrivalTime: String,
+    val departureDate: String,
+    val fareFamily: String
+)
+
+@Serializable
+data class ManageBookingPassengerDto(
+    val passengerId: String,
+    val title: String,
+    val firstName: String,
+    val lastName: String,
+    val type: String,
+    val dateOfBirth: String? = null
+)
+
+@Serializable
+data class BookedAncillaryDto(
+    val type: String,
+    val description: String,
+    val passengerId: String,
+    val priceFormatted: String
+)
+
+@Serializable
+data class PaymentSummaryDto(
+    val totalPaidMinor: Long,
+    val totalPaidFormatted: String,
+    val currency: String,
+    val paymentMethod: String,
+    val lastFourDigits: String? = null
+)
+
+@Serializable
+data class ModifyBookingRequestDto(
+    val pnr: String,
+    val lastName: String,
+    val modifications: BookingModificationsDto
+)
+
+@Serializable
+data class BookingModificationsDto(
+    val newFlightNumber: String? = null,
+    val newDepartureDate: String? = null,
+    val passengerUpdates: List<PassengerUpdateDto> = emptyList(),
+    val addAncillaries: List<AncillaryDto> = emptyList(),
+    val removeAncillaries: List<String> = emptyList()
+)
+
+@Serializable
+data class PassengerUpdateDto(
+    val passengerId: String,
+    val firstName: String? = null,
+    val lastName: String? = null
+)
+
+@Serializable
+data class ModifyBookingResponseDto(
+    val pnr: String,
+    val success: Boolean,
+    val message: String,
+    val priceDifferenceFormatted: String? = null,
+    val requiresPayment: Boolean = false
+)
+
+@Serializable
+data class CancelBookingRequestDto(
+    val pnr: String,
+    val lastName: String,
+    val reason: String? = null
+)
+
+@Serializable
+data class CancelBookingResponseDto(
+    val pnr: String,
+    val success: Boolean,
+    val message: String,
+    val refundAmountFormatted: String? = null,
+    val refundMethod: String? = null
+)
+
+// ============================================================================
+// Membership DTOs
+// ============================================================================
+
+@Serializable
+data class MembershipPlanDto(
+    val id: String,
+    val name: String,
+    val tier: String,
+    val monthlyPriceMinor: Long,
+    val monthlyPriceFormatted: String,
+    val annualPriceMinor: Long,
+    val annualPriceFormatted: String,
+    val currency: String,
+    val benefits: List<String>,
+    val flightsPerMonth: Int,
+    val guestPasses: Int,
+    val priorityBoarding: Boolean,
+    val loungeAccess: Boolean,
+    val flexibleChanges: Boolean,
+    val baggageAllowance: String
+)
+
+@Serializable
+data class SubscriptionDto(
+    val id: String,
+    val planId: String,
+    val planName: String,
+    val status: String,
+    val billingCycle: String,
+    val currentPeriodStart: String,
+    val currentPeriodEnd: String,
+    val flightsUsed: Int,
+    val flightsRemaining: Int,
+    val guestPassesUsed: Int,
+    val guestPassesRemaining: Int,
+    val autoRenew: Boolean
+)
+
+@Serializable
+data class SubscribeRequestDto(
+    val planId: String,
+    val billingCycle: String,
+    val paymentMethodId: String? = null
+)
+
+@Serializable
+data class CancelSubscriptionResponseDto(
+    val success: Boolean,
+    val message: String,
+    val effectiveDate: String
+)
+
+@Serializable
+data class UsageStatsDto(
+    val subscriptionId: String,
+    val currentPeriod: String,
+    val flightsUsed: Int,
+    val flightsLimit: Int,
+    val guestPassesUsed: Int,
+    val guestPassesLimit: Int,
+    val savingsThisPeriodFormatted: String,
+    val recentFlights: List<UsageFlightDto>
+)
+
+@Serializable
+data class UsageFlightDto(
+    val flightNumber: String,
+    val route: String,
+    val date: String,
+    val savedAmountFormatted: String
+)
+
+// ============================================================================
+// Seat Map DTOs
+// ============================================================================
+
+@Serializable
+data class SeatMapDto(
+    val flightNumber: String,
+    val aircraft: String,
+    val rows: List<SeatRowDto>,
+    val legend: List<SeatLegendDto>
+)
+
+@Serializable
+data class SeatRowDto(
+    val rowNumber: Int,
+    val seats: List<SeatDto>,
+    val isExitRow: Boolean = false
+)
+
+@Serializable
+data class SeatDto(
+    val seatNumber: String,
+    val status: String,
+    val type: String,
+    val priceMinor: Long = 0,
+    val priceFormatted: String = "Free",
+    val features: List<String> = emptyList()
+)
+
+@Serializable
+data class SeatLegendDto(
+    val type: String,
+    val label: String,
+    val color: String
+)
+
+// ============================================================================
+// Meal DTOs
+// ============================================================================
+
+@Serializable
+data class MealOptionDto(
+    val id: String,
+    val name: String,
+    val description: String,
+    val category: String,
+    val priceMinor: Long,
+    val priceFormatted: String,
+    val imageUrl: String? = null,
+    val dietaryInfo: List<String> = emptyList(),
+    val available: Boolean = true
+)

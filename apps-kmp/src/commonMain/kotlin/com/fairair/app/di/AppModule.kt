@@ -10,6 +10,9 @@ import com.fairair.app.ui.screens.ancillaries.AncillariesScreenModel
 import com.fairair.app.ui.screens.payment.PaymentScreenModel
 import com.fairair.app.ui.screens.confirmation.ConfirmationScreenModel
 import com.fairair.app.ui.screens.saved.SavedBookingsScreenModel
+import com.fairair.app.ui.screens.checkin.CheckInScreenModel
+import com.fairair.app.ui.screens.manage.ManageBookingScreenModel
+import com.fairair.app.ui.screens.membership.MembershipScreenModel
 import org.koin.dsl.module
 
 /**
@@ -125,6 +128,28 @@ fun createScreenModelModule() = module {
     // Saved Bookings Screen Model
     factory {
         SavedBookingsScreenModel(
+            localStorage = get()
+        )
+    }
+
+    // Check-In Screen Model
+    factory {
+        CheckInScreenModel(
+            apiClient = get()
+        )
+    }
+
+    // Manage Booking Screen Model
+    factory {
+        ManageBookingScreenModel(
+            apiClient = get()
+        )
+    }
+
+    // Membership Screen Model
+    factory {
+        MembershipScreenModel(
+            apiClient = get(),
             localStorage = get()
         )
     }

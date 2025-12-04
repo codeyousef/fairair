@@ -142,12 +142,18 @@ interface AppStrings {
     val velocitySentenceFrom: String
     val velocitySentenceTo: String
     val velocitySentenceDeparting: String
+    val velocitySentenceReturning: String
     val velocitySentenceWith: String
     val velocitySelectOrigin: String
     val velocitySelectDestination: String
     val velocitySelectDate: String
+    val velocitySelectReturnDate: String
     val velocityAdult: String
     val velocityAdults: String
+    val velocityOneWay: String
+    val velocityRoundTrip: String
+    val velocityMultiCity: String
+    val velocityTripType: String
 
     // Velocity UI - Results
     val velocityResultsTitle: String
@@ -335,12 +341,18 @@ object EnglishStrings : AppStrings {
     override val velocitySentenceFrom = "from"
     override val velocitySentenceTo = "to"
     override val velocitySentenceDeparting = "departing on"
+    override val velocitySentenceReturning = "returning on"
     override val velocitySentenceWith = "with"
     override val velocitySelectOrigin = "Origin"
     override val velocitySelectDestination = "Destination"
     override val velocitySelectDate = "Date"
+    override val velocitySelectReturnDate = "Return"
     override val velocityAdult = "Adult"
     override val velocityAdults = "Adults"
+    override val velocityOneWay = "One-way"
+    override val velocityRoundTrip = "Round trip"
+    override val velocityMultiCity = "Multi-city"
+    override val velocityTripType = "Trip type"
 
     // Velocity UI - Results
     override val velocityResultsTitle = "Available Flights"
@@ -528,12 +540,18 @@ object ArabicStrings : AppStrings {
     override val velocitySentenceFrom = "من"
     override val velocitySentenceTo = "إلى"
     override val velocitySentenceDeparting = "بتاريخ"
+    override val velocitySentenceReturning = "والعودة بتاريخ"
     override val velocitySentenceWith = "لعدد"
     override val velocitySelectOrigin = "المغادرة"
     override val velocitySelectDestination = "الوجهة"
     override val velocitySelectDate = "التاريخ"
+    override val velocitySelectReturnDate = "العودة"
     override val velocityAdult = "بالغ"
     override val velocityAdults = "بالغين"
+    override val velocityOneWay = "ذهاب فقط"
+    override val velocityRoundTrip = "ذهاب وعودة"
+    override val velocityMultiCity = "وجهات متعددة"
+    override val velocityTripType = "نوع الرحلة"
 
     // Velocity UI - Results
     override val velocityResultsTitle = "الرحلات المتاحة"

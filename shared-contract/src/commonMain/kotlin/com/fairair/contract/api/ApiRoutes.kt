@@ -187,6 +187,307 @@ object ApiRoutes {
     }
 
     /**
+     * Check-in endpoints.
+     */
+    object CheckIn {
+        /**
+         * Base path for check-in endpoints.
+         */
+        const val BASE = "$BASE_PATH/checkin"
+
+        /**
+         * POST: Initiate check-in with PNR and last name.
+         * Request: CheckInRequestDto
+         * Response: CheckInResponseDto
+         */
+        const val INITIATE = BASE
+
+        /**
+         * POST: Complete check-in for specific passengers.
+         * Path param: {pnr}
+         * Request: CompleteCheckInRequestDto
+         * Response: BoardingPassDto
+         */
+        const val COMPLETE = "$BASE/{pnr}/complete"
+
+        /**
+         * Constructs URL for completing check-in.
+         */
+        fun completeFor(pnr: String): String = "$BASE/$pnr/complete"
+
+        /**
+         * GET: Get boarding pass for a checked-in passenger.
+         * Path param: {pnr}, {passengerIndex}
+         * Response: BoardingPassDto
+         */
+        const val BOARDING_PASS = "$BASE/{pnr}/boarding-pass/{passengerIndex}"
+
+        /**
+         * Constructs URL for retrieving boarding pass.
+         */
+        fun boardingPassFor(pnr: String, passengerIndex: Int): String =
+            "$BASE/$pnr/boarding-pass/$passengerIndex"
+    }
+
+    /**
+     * Manage booking endpoints.
+     */
+    object ManageBooking {
+        /**
+         * Base path for manage booking endpoints.
+         */
+        const val BASE = "$BASE_PATH/manage"
+
+        /**
+         * POST: Retrieve booking with PNR and last name.
+         * Request: RetrieveBookingRequestDto
+         * Response: ManagedBookingDto
+         */
+        const val RETRIEVE = BASE
+
+        /**
+         * PUT: Update passenger details.
+         * Path param: {pnr}
+         * Request: UpdatePassengersRequestDto
+         * Response: ManagedBookingDto
+         */
+        const val UPDATE_PASSENGERS = "$BASE/{pnr}/passengers"
+
+        /**
+         * Constructs URL for updating passengers.
+         */
+        fun updatePassengersFor(pnr: String): String = "$BASE/$pnr/passengers"
+
+        /**
+         * POST: Change flight (date/time).
+         * Path param: {pnr}
+         * Request: ChangeFlightRequestDto
+         * Response: FlightChangeQuoteDto (with fee if applicable)
+         */
+        const val CHANGE_FLIGHT = "$BASE/{pnr}/change"
+
+        /**
+         * Constructs URL for changing flight.
+         */
+        fun changeFlightFor(pnr: String): String = "$BASE/$pnr/change"
+
+        /**
+         * POST: Cancel booking.
+         * Path param: {pnr}
+         * Request: CancelBookingRequestDto
+         * Response: CancellationConfirmationDto
+         */
+        const val CANCEL = "$BASE/{pnr}/cancel"
+
+        /**
+         * Constructs URL for cancellation.
+         */
+        fun cancelFor(pnr: String): String = "$BASE/$pnr/cancel"
+
+        /**
+         * POST: Add ancillaries to existing booking.
+         * Path param: {pnr}
+         * Request: AddAncillariesRequestDto
+         * Response: ManagedBookingDto
+         */
+        const val ADD_ANCILLARIES = "$BASE/{pnr}/ancillaries"
+
+        /**
+         * Constructs URL for adding ancillaries.
+         */
+        fun addAncillariesFor(pnr: String): String = "$BASE/$pnr/ancillaries"
+    }
+
+    /**
+     * Membership subscription endpoints.
+     */
+    object Membership {
+        /**
+         * Base path for membership endpoints.
+         */
+        const val BASE = "$BASE_PATH/membership"
+
+        /**
+         * GET: Get available membership plans.
+         * Response: List<MembershipPlanDto>
+         */
+        const val PLANS = "$BASE/plans"
+
+        /**
+         * POST: Subscribe to a membership plan.
+         * Request: SubscribeRequestDto
+         * Response: SubscriptionDto
+         */
+        const val SUBSCRIBE = "$BASE/subscribe"
+
+        /**
+         * GET: Get current user's subscription status.
+         * Response: SubscriptionDto or 404 if not subscribed
+         */
+        const val STATUS = "$BASE/status"
+
+        /**
+         * GET: Get membership usage stats for current billing period.
+         * Response: MembershipUsageDto
+         */
+        const val USAGE = "$BASE/usage"
+
+        /**
+         * POST: Cancel subscription.
+         * Response: CancellationDto
+         */
+        const val CANCEL = "$BASE/cancel"
+
+        /**
+         * POST: Book a flight using membership credits.
+         * Request: MembershipBookingRequestDto
+         * Response: BookingConfirmationDto
+         */
+        const val BOOK = "$BASE/book"
+    }
+
+    /**
+     * Seat selection endpoints.
+     */
+    object Seats {
+        /**
+         * Base path for seat endpoints.
+         */
+        const val BASE = "$BASE_PATH/seats"
+
+        /**
+         * GET: Get seat map for a flight.
+         * Path param: {flightNumber}
+         * Query param: date
+         * Response: SeatMapDto
+         */
+        const val MAP = "$BASE/{flightNumber}"
+
+        /**
+         * Constructs URL for seat map.
+         */
+        fun mapFor(flightNumber: String, date: String): String =
+            "$BASE/$flightNumber?date=$date"
+
+        /**
+         * POST: Reserve seats (temporary hold during booking).
+         * Request: SeatReservationRequestDto
+         * Response: SeatReservationDto
+         */
+        const val RESERVE = "$BASE/reserve"
+
+        /**
+         * POST: Assign seats to existing booking.
+         * Request: SeatAssignmentRequestDto
+         * Response: SeatAssignmentDto
+         */
+        const val ASSIGN = "$BASE/assign"
+    }
+
+    /**
+     * Meals pre-order endpoints.
+     */
+    object Meals {
+        /**
+         * Base path for meals endpoints.
+         */
+        const val BASE = "$BASE_PATH/meals"
+
+        /**
+         * GET: Get available meals for a route.
+         * Query params: origin, destination, flightDuration
+         * Response: List<MealOptionDto>
+         */
+        const val AVAILABLE = BASE
+
+        /**
+         * Constructs URL for available meals.
+         */
+        fun availableFor(origin: String, destination: String): String =
+            "$BASE?origin=$origin&destination=$destination"
+
+        /**
+         * POST: Add meal to booking.
+         * Request: AddMealRequestDto
+         * Response: MealConfirmationDto
+         */
+        const val ADD = "$BASE/add"
+    }
+
+    /**
+     * Content endpoints (Help Center, Destinations, etc.).
+     */
+    object Content {
+        /**
+         * Base path for content endpoints.
+         */
+        const val BASE = "$BASE_PATH/content"
+
+        /**
+         * GET: Get help center categories.
+         * Response: List<HelpCategoryDto>
+         */
+        const val HELP_CATEGORIES = "$BASE/help/categories"
+
+        /**
+         * GET: Get articles in a category.
+         * Path param: {categoryId}
+         * Response: List<HelpArticleDto>
+         */
+        const val HELP_ARTICLES = "$BASE/help/categories/{categoryId}/articles"
+
+        /**
+         * Constructs URL for articles.
+         */
+        fun articlesFor(categoryId: String): String =
+            "$BASE/help/categories/$categoryId/articles"
+
+        /**
+         * GET: Get single article.
+         * Path param: {articleId}
+         * Response: HelpArticleDto
+         */
+        const val HELP_ARTICLE = "$BASE/help/articles/{articleId}"
+
+        /**
+         * Constructs URL for single article.
+         */
+        fun article(articleId: String): String = "$BASE/help/articles/$articleId"
+
+        /**
+         * GET: Get destination details.
+         * Path param: {code}
+         * Response: DestinationDetailDto
+         */
+        const val DESTINATION = "$BASE/destinations/{code}"
+
+        /**
+         * Constructs URL for destination.
+         */
+        fun destination(code: String): String = "$BASE/destinations/$code"
+
+        /**
+         * GET: Get all destinations.
+         * Response: List<DestinationSummaryDto>
+         */
+        const val DESTINATIONS = "$BASE/destinations"
+
+        /**
+         * POST: Subscribe to newsletter.
+         * Request: NewsletterSubscribeRequestDto
+         * Response: NewsletterSubscribeResponseDto
+         */
+        const val NEWSLETTER_SUBSCRIBE = "$BASE/newsletter/subscribe"
+
+        /**
+         * POST: Submit contact form.
+         * Request: ContactFormRequestDto
+         * Response: ContactFormResponseDto
+         */
+        const val CONTACT = "$BASE/contact"
+    }
+
+    /**
      * Health check endpoint.
      */
     object Health {

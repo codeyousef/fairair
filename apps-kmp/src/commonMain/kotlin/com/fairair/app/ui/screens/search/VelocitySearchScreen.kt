@@ -30,19 +30,23 @@ import kotlinx.datetime.LocalDate
  * - Circular launch button with glow effect
  * - RTL support for Arabic
  * - Low-fare calendar with prices on date picker
+ * - Round-trip support with return date
  *
  * @param state Current search state
  * @param strings Localized strings
  * @param isRtl Whether to use RTL layout
  * @param onOriginSelect Callback when origin is selected
  * @param onDestinationSelect Callback when destination is selected
- * @param onDateSelect Callback when date is selected
+ * @param onDateSelect Callback when departure date is selected
+ * @param onReturnDateSelect Callback when return date is selected
  * @param onPassengerSelect Callback when passenger count is selected
+ * @param onTripTypeChange Callback when trip type is changed
  * @param onFieldActivate Callback when a field is tapped
  * @param onSearch Callback when search is initiated
  * @param onNavigateToSettings Callback to navigate to settings
  * @param onNavigateToSavedBookings Callback to navigate to saved bookings
  * @param onMonthChange Callback when month changes in date picker (for fetching low fares)
+ * @param onReturnMonthChange Callback when month changes in return date picker
  */
 @Composable
 fun VelocitySearchScreen(
@@ -53,12 +57,15 @@ fun VelocitySearchScreen(
     onOriginSelect: (StationDto) -> Unit,
     onDestinationSelect: (StationDto) -> Unit,
     onDateSelect: (LocalDate) -> Unit,
+    onReturnDateSelect: ((LocalDate) -> Unit)? = null,
     onPassengerSelect: (PassengerCounts) -> Unit,
+    onTripTypeChange: ((TripType) -> Unit)? = null,
     onFieldActivate: (SearchField?) -> Unit,
     onSearch: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToSavedBookings: () -> Unit,
     onMonthChange: ((year: Int, month: Int) -> Unit)? = null,
+    onReturnMonthChange: ((year: Int, month: Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     VelocityThemeWithBackground(
@@ -98,9 +105,12 @@ fun VelocitySearchScreen(
                         originValue = state.selectedOrigin?.city,
                         destinationValue = state.selectedDestination?.city,
                         dateValue = if (state.departureDate != null) state.formattedDateArabic else null,
+                        returnDateValue = if (state.returnDate != null) state.formattedReturnDateArabic else null,
                         passengerValue = state.passengerLabelArabic,
+                        tripType = state.tripType,
                         activeField = state.activeField,
                         onFieldClick = onFieldActivate,
+                        onTripTypeChange = onTripTypeChange,
                         strings = strings
                     )
                 } else {
@@ -108,9 +118,12 @@ fun VelocitySearchScreen(
                         originValue = state.selectedOrigin?.city,
                         destinationValue = state.selectedDestination?.city,
                         dateValue = if (state.departureDate != null) state.formattedDate else null,
+                        returnDateValue = if (state.returnDate != null) state.formattedReturnDate else null,
                         passengerValue = state.passengerLabel,
+                        tripType = state.tripType,
                         activeField = state.activeField,
                         onFieldClick = onFieldActivate,
+                        onTripTypeChange = onTripTypeChange,
                         strings = strings
                     )
                 }
@@ -191,6 +204,24 @@ fun VelocitySearchScreen(
             onDismiss = { onFieldActivate(null) },
             onMonthChange = onMonthChange
         )
+
+        // Return date selection sheet (for round-trip)
+        if (state.tripType == TripType.ROUND_TRIP && onReturnDateSelect != null) {
+            DateSelectionBottomSheet(
+                isVisible = state.activeField == SearchField.RETURN_DATE,
+                title = strings.velocitySelectReturnDate,
+                selectedDate = state.returnDate,
+                minDate = state.departureDate,
+                lowFares = state.returnLowFares,
+                isLoadingPrices = state.loadingReturnLowFares,
+                onSelect = { date ->
+                    onReturnDateSelect(date)
+                    onFieldActivate(null)
+                },
+                onDismiss = { onFieldActivate(null) },
+                onMonthChange = onReturnMonthChange
+            )
+        }
 
         PassengerSelectionBottomSheet(
             isVisible = state.activeField == SearchField.PASSENGERS,

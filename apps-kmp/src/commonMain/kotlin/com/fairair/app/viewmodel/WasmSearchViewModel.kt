@@ -6,6 +6,7 @@ import com.fairair.app.state.SearchCriteria
 import com.fairair.app.ui.components.velocity.DestinationTheme
 import com.fairair.app.ui.components.velocity.PassengerCounts
 import com.fairair.app.ui.screens.search.SearchField
+import com.fairair.app.ui.screens.search.TripType
 import com.fairair.app.ui.screens.search.VelocitySearchState
 import com.fairair.app.util.toDisplayMessage
 import kotlinx.coroutines.CoroutineScope
@@ -82,6 +83,24 @@ class WasmSearchViewModel(
     }
 
     /**
+     * Sets the trip type (one-way, round-trip, multi-city).
+     */
+    fun setTripType(tripType: TripType) {
+        _velocityState.update { state ->
+            // Clear return date when switching to one-way
+            if (tripType == TripType.ONE_WAY) {
+                state.copy(
+                    tripType = tripType,
+                    returnDate = null,
+                    returnLowFares = emptyMap()
+                )
+            } else {
+                state.copy(tripType = tripType)
+            }
+        }
+    }
+
+    /**
      * Selects an origin airport (Velocity UI).
      * Fetches valid destinations from the backend.
      */
@@ -133,16 +152,36 @@ class WasmSearchViewModel(
                 selectedDestination = station,
                 destinationBackground = DestinationTheme.forDestination(station.code),
                 // Clear existing low fares when destination changes
-                lowFares = emptyMap()
+                lowFares = emptyMap(),
+                returnLowFares = emptyMap()
             )
         }
     }
 
     /**
      * Selects a departure date (Velocity UI).
+     * If the return date is before the new departure date, clears it.
      */
     fun selectVelocityDate(date: LocalDate) {
-        _velocityState.update { it.copy(departureDate = date) }
+        _velocityState.update { state ->
+            // Clear return date if it's before the new departure date
+            val newReturnDate = if (state.returnDate != null && state.returnDate < date) {
+                null
+            } else {
+                state.returnDate
+            }
+            state.copy(
+                departureDate = date,
+                returnDate = newReturnDate
+            )
+        }
+    }
+
+    /**
+     * Selects a return date (Velocity UI) for round-trip flights.
+     */
+    fun selectVelocityReturnDate(date: LocalDate) {
+        _velocityState.update { it.copy(returnDate = date) }
     }
     
     /**
@@ -214,6 +253,75 @@ class WasmSearchViewModel(
     }
 
     /**
+     * Fetches low fare prices for the return flight for a given month.
+     * Uses reversed origin/destination.
+     * 
+     * @param year The year to fetch prices for
+     * @param month The month number (1-12) to fetch prices for
+     */
+    fun fetchReturnLowFaresForMonth(year: Int, month: Int) {
+        val state = _velocityState.value
+        val origin = state.selectedOrigin ?: return
+        val destination = state.selectedDestination ?: return
+        
+        // Calculate start and end dates for the month
+        val startDate = LocalDate(year, month, 1)
+        val daysInMonth = when (month) {
+            1, 3, 5, 7, 8, 10, 12 -> 31
+            4, 6, 9, 11 -> 30
+            2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
+            else -> 30
+        }
+        val endDate = LocalDate(year, month, daysInMonth)
+        
+        // Don't fetch if we already have data for this range
+        val hasDataForMonth = state.returnLowFares.keys.any { 
+            it.year == year && it.monthNumber == month 
+        }
+        if (hasDataForMonth && !state.returnLowFares.isEmpty()) {
+            return
+        }
+        
+        _velocityState.update { it.copy(loadingReturnLowFares = true) }
+        
+        scope.launch {
+            // Note: reversed origin/destination for return flight
+            val result = apiClient.getLowFares(
+                origin = destination.code,
+                destination = origin.code,
+                startDate = startDate.toString(),
+                endDate = endDate.toString(),
+                adults = state.adultsCount,
+                children = state.childrenCount,
+                infants = state.infantsCount
+            )
+            
+            when (result) {
+                is ApiResult.Success -> {
+                    _velocityState.update { currentState ->
+                        val newLowFares = currentState.returnLowFares.toMutableMap()
+                        result.data.dates.forEach { dto ->
+                            try {
+                                val date = LocalDate.parse(dto.date)
+                                newLowFares[date] = dto
+                            } catch (e: Exception) {
+                                // Skip invalid dates
+                            }
+                        }
+                        currentState.copy(
+                            returnLowFares = newLowFares,
+                            loadingReturnLowFares = false
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    _velocityState.update { it.copy(loadingReturnLowFares = false) }
+                }
+            }
+        }
+    }
+
+    /**
      * Updates passenger counts (Velocity UI).
      * Supports adults, children, and infants.
      */
@@ -229,12 +337,18 @@ class WasmSearchViewModel(
 
     /**
      * Initiates flight search from Velocity UI.
+     * For round-trip, searches outbound flight first.
      */
     fun searchFromVelocity(onSearchComplete: () -> Unit) {
         val state = _velocityState.value
         val origin = state.selectedOrigin ?: return
         val destination = state.selectedDestination ?: return
         val date = state.departureDate ?: return
+
+        // For round-trip, require return date
+        if (state.tripType == TripType.ROUND_TRIP && state.returnDate == null) {
+            return
+        }
 
         scope.launch {
             _velocityState.update { it.copy(isSearching = true, error = null) }
@@ -243,6 +357,7 @@ class WasmSearchViewModel(
                 origin = origin.code,
                 destination = destination.code,
                 departureDate = date.toString(),
+                returnDate = if (state.tripType == TripType.ROUND_TRIP) state.returnDate?.toString() else null,
                 passengers = PassengerCountsDto(
                     adults = state.adultsCount,
                     children = state.childrenCount,
@@ -257,7 +372,9 @@ class WasmSearchViewModel(
                             origin = origin,
                             destination = destination,
                             departureDate = date.toString(),
-                            passengers = request.passengers
+                            returnDate = state.returnDate?.toString(),
+                            passengers = request.passengers,
+                            tripType = state.tripType
                         )
                     )
                     bookingFlowState.setSearchResult(result.data)

@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -90,7 +91,11 @@ private enum class WasmScreen {
     CONFIRMATION,
     SETTINGS,
     SAVED_BOOKINGS,
-    LOGIN
+    LOGIN,
+    CHECK_IN,
+    MANAGE_BOOKING,
+    MEMBERSHIP,
+    HELP
 }
 
 @Composable
@@ -113,6 +118,10 @@ private fun WasmAppContent() {
             "settings" -> WasmScreen.SETTINGS
             "bookings" -> WasmScreen.SAVED_BOOKINGS
             "login" -> WasmScreen.LOGIN
+            "checkin" -> WasmScreen.CHECK_IN
+            "manage" -> WasmScreen.MANAGE_BOOKING
+            "membership" -> WasmScreen.MEMBERSHIP
+            "help" -> WasmScreen.HELP
             else -> WasmScreen.LANDING
         }
     }
@@ -151,6 +160,10 @@ private fun WasmAppContent() {
             WasmScreen.SETTINGS -> "settings"
             WasmScreen.SAVED_BOOKINGS -> "bookings"
             WasmScreen.LOGIN -> "login"
+            WasmScreen.CHECK_IN -> "checkin"
+            WasmScreen.MANAGE_BOOKING -> "manage"
+            WasmScreen.MEMBERSHIP -> "membership"
+            WasmScreen.HELP -> "help"
         }
         val newUrl = if (hash.isEmpty()) "/" else "#$hash"
         if (window.location.hash != "#$hash" && window.location.pathname + window.location.hash != newUrl) {
@@ -203,6 +216,32 @@ private fun WasmAppContent() {
                             onSettingsClick = {
                                 previousScreen = WasmScreen.LANDING
                                 currentScreen = WasmScreen.SETTINGS
+                            },
+                            onCheckInClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.CHECK_IN
+                            },
+                            onManageBookingClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.MANAGE_BOOKING
+                            },
+                            onMembershipClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.MEMBERSHIP
+                            },
+                            onHotelsClick = {
+                                com.fairair.app.util.UrlOpener.openUrl(
+                                    com.fairair.app.util.ExternalLinks.buildHotelSearchUrl()
+                                )
+                            },
+                            onCarRentalClick = {
+                                com.fairair.app.util.UrlOpener.openUrl(
+                                    com.fairair.app.util.ExternalLinks.buildCarRentalUrl()
+                                )
+                            },
+                            onHelpClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.HELP
                             },
                             onDealClick = { origin, destination ->
                                 searchViewModel.preselectRoute(origin, destination)
@@ -327,6 +366,37 @@ private fun WasmAppContent() {
                         },
                         onNavigateToLogin = {
                             currentScreen = WasmScreen.LOGIN
+                        }
+                    )
+                }
+                WasmScreen.CHECK_IN -> {
+                    WasmCheckInScreen(
+                        apiClient = apiClient,
+                        onBack = { navigateBack() }
+                    )
+                }
+                WasmScreen.MANAGE_BOOKING -> {
+                    WasmManageBookingScreen(
+                        apiClient = apiClient,
+                        onBack = { navigateBack() },
+                        onNavigateToCheckIn = { currentScreen = WasmScreen.CHECK_IN }
+                    )
+                }
+                WasmScreen.MEMBERSHIP -> {
+                    WasmMembershipScreen(
+                        apiClient = apiClient,
+                        localStorage = localStorage,
+                        onBack = { navigateBack() },
+                        onNavigateToLogin = { currentScreen = WasmScreen.LOGIN }
+                    )
+                }
+                WasmScreen.HELP -> {
+                    com.fairair.app.ui.screens.help.HelpScreen(
+                        onBack = { navigateBack() },
+                        onContactUs = {
+                            com.fairair.app.util.UrlOpener.openUrl(
+                                com.fairair.app.util.ExternalLinks.buildContactUrl()
+                            )
                         }
                     )
                 }
@@ -3134,5 +3204,753 @@ private fun WasmDropdownField(
                 )
             }
         }
+    }
+}
+
+// ============================================================================
+// Check-In Screen for Wasm
+// ============================================================================
+
+@Composable
+private fun WasmCheckInScreen(
+    apiClient: FairairApiClient,
+    onBack: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var pnr by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var lookupResult by remember { mutableStateOf<com.fairair.app.api.CheckInLookupResponseDto?>(null) }
+    var checkInResult by remember { mutableStateOf<com.fairair.app.api.CheckInResultDto?>(null) }
+    var selectedPassengers by remember { mutableStateOf(setOf<String>()) }
+
+    VelocityThemeWithBackground {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = VelocityColors.TextMain
+                    )
+                }
+                Text(
+                    text = "Online Check-In",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = VelocityColors.TextMain,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when {
+                    checkInResult != null -> {
+                        // Success view
+                        item {
+                            Spacer(modifier = Modifier.height(48.dp))
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(100.dp)
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Check-In Complete!",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = VelocityColors.TextMain,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = checkInResult!!.message,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = VelocityColors.TextMuted,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(32.dp))
+                        }
+                        
+                        items(checkInResult!!.checkedInPassengers) { passenger ->
+                            GlassCard(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                Column(modifier = Modifier.padding(20.dp)) {
+                                    Text(
+                                        text = passenger.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = VelocityColors.TextMain,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column {
+                                            Text("Seat", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
+                                            Text(passenger.seatNumber, style = MaterialTheme.typography.titleLarge, color = VelocityColors.Accent, fontWeight = FontWeight.Bold)
+                                        }
+                                        Column {
+                                            Text("Boarding Group", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
+                                            Text(passenger.boardingGroup, style = MaterialTheme.typography.titleLarge, color = VelocityColors.TextMain)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        item {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = {
+                                    checkInResult = null
+                                    lookupResult = null
+                                    pnr = ""
+                                    lastName = ""
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = VelocityColors.Accent)
+                            ) {
+                                Text("Done", fontWeight = FontWeight.SemiBold)
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+                    }
+                    
+                    lookupResult != null -> {
+                        // Passenger selection view
+                        item {
+                            Text(
+                                text = "Select Passengers",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = VelocityColors.TextMain,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Choose who to check in for ${lookupResult!!.flight.flightNumber}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = VelocityColors.TextMuted
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+                        
+                        items(lookupResult!!.passengers.filter { !it.isCheckedIn }) { passenger ->
+                            val isSelected = passenger.passengerId in selectedPassengers
+                            GlassCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .clickable {
+                                        selectedPassengers = if (isSelected) {
+                                            selectedPassengers - passenger.passengerId
+                                        } else {
+                                            selectedPassengers + passenger.passengerId
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = {
+                                            selectedPassengers = if (isSelected) {
+                                                selectedPassengers - passenger.passengerId
+                                            } else {
+                                                selectedPassengers + passenger.passengerId
+                                            }
+                                        },
+                                        colors = CheckboxDefaults.colors(checkedColor = VelocityColors.Accent)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "${passenger.firstName} ${passenger.lastName}",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = VelocityColors.TextMain
+                                        )
+                                        Text(
+                                            text = passenger.type,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = VelocityColors.TextMuted
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        item {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        isLoading = true
+                                        error = null
+                                        val request = com.fairair.app.api.CheckInProcessRequestDto(
+                                            pnr = pnr,
+                                            passengerIds = selectedPassengers.toList()
+                                        )
+                                        when (val result = apiClient.processCheckIn(request)) {
+                                            is com.fairair.app.api.ApiResult.Success -> {
+                                                checkInResult = result.data
+                                            }
+                                            is com.fairair.app.api.ApiResult.Error -> {
+                                                error = result.message
+                                            }
+                                        }
+                                        isLoading = false
+                                    }
+                                },
+                                enabled = selectedPassengers.isNotEmpty() && !isLoading,
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = VelocityColors.Accent)
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Text("Complete Check-In", fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+                    }
+                    
+                    else -> {
+                        // Lookup form
+                        item {
+                            Spacer(modifier = Modifier.height(48.dp))
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = null,
+                                tint = VelocityColors.Accent,
+                                modifier = Modifier.size(80.dp)
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Check In Online",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = VelocityColors.TextMain,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Check in 48 hours before departure",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = VelocityColors.TextMuted
+                            )
+                            Spacer(modifier = Modifier.height(32.dp))
+                        }
+                        
+                        item {
+                            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(24.dp)) {
+                                    WasmTextField(
+                                        value = pnr,
+                                        onValueChange = { pnr = it.uppercase().take(6) },
+                                        label = "Booking Reference (PNR)",
+                                        placeholder = "e.g., ABC123"
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    WasmTextField(
+                                        value = lastName,
+                                        onValueChange = { lastName = it },
+                                        label = "Last Name",
+                                        placeholder = "e.g., Smith"
+                                    )
+                                    
+                                    if (error != null) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = error!!,
+                                            color = MaterialTheme.colorScheme.error,
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Button(
+                                        onClick = {
+                                            scope.launch {
+                                                isLoading = true
+                                                error = null
+                                                when (val result = apiClient.lookupForCheckIn(pnr, lastName)) {
+                                                    is com.fairair.app.api.ApiResult.Success -> {
+                                                        if (result.data.isEligibleForCheckIn) {
+                                                            lookupResult = result.data
+                                                            selectedPassengers = result.data.passengers
+                                                                .filter { !it.isCheckedIn }
+                                                                .map { it.passengerId }
+                                                                .toSet()
+                                                        } else {
+                                                            error = result.data.eligibilityMessage ?: "Check-in not available"
+                                                        }
+                                                    }
+                                                    is com.fairair.app.api.ApiResult.Error -> {
+                                                        error = result.message
+                                                    }
+                                                }
+                                                isLoading = false
+                                            }
+                                        },
+                                        enabled = pnr.length == 6 && lastName.isNotBlank() && !isLoading,
+                                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = VelocityColors.Accent)
+                                    ) {
+                                        if (isLoading) {
+                                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Text("Find Booking", fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Manage Booking Screen for Wasm
+// ============================================================================
+
+@Composable
+private fun WasmManageBookingScreen(
+    apiClient: FairairApiClient,
+    onBack: () -> Unit,
+    onNavigateToCheckIn: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var pnr by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var booking by remember { mutableStateOf<com.fairair.app.api.ManageBookingResponseDto?>(null) }
+
+    VelocityThemeWithBackground {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = {
+                    if (booking != null) {
+                        booking = null
+                    } else {
+                        onBack()
+                    }
+                }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = VelocityColors.TextMain)
+                }
+                Text(
+                    text = "Manage Booking",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = VelocityColors.TextMain,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+
+            if (booking != null) {
+                // Booking details
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "PNR: ${booking!!.pnr}",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = VelocityColors.TextMain,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Surface(
+                                color = Color(0xFF4CAF50).copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(20.dp)
+                            ) {
+                                Text(
+                                    text = booking!!.status,
+                                    color = Color(0xFF4CAF50),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Flight details
+                    item {
+                        GlassCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Send, null, tint = VelocityColors.Accent, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Flight Details", style = MaterialTheme.typography.titleMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.SemiBold)
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column {
+                                        Text(booking!!.flight.origin, style = MaterialTheme.typography.headlineSmall, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                        Text(booking!!.flight.originName, style = MaterialTheme.typography.bodySmall, color = VelocityColors.TextMuted)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(booking!!.flight.flightNumber, style = MaterialTheme.typography.bodySmall, color = VelocityColors.Accent)
+                                        Icon(Icons.Default.ArrowForward, null, tint = VelocityColors.TextMuted, modifier = Modifier.size(20.dp))
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(booking!!.flight.destination, style = MaterialTheme.typography.headlineSmall, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                        Text(booking!!.flight.destinationName, style = MaterialTheme.typography.bodySmall, color = VelocityColors.TextMuted)
+                                    }
+                                }
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = VelocityColors.GlassBorder)
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Default.DateRange, null, tint = VelocityColors.TextMuted, modifier = Modifier.size(16.dp))
+                                        Text("Date", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
+                                        Text(booking!!.flight.departureDate, style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMain)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Default.Info, null, tint = VelocityColors.TextMuted, modifier = Modifier.size(16.dp))
+                                        Text("Time", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
+                                        Text(booking!!.flight.departureTime, style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMain)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Default.Person, null, tint = VelocityColors.TextMuted, modifier = Modifier.size(16.dp))
+                                        Text("Fare", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
+                                        Text(booking!!.flight.fareFamily, style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMain)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Passengers
+                    item {
+                        GlassCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Person, null, tint = VelocityColors.Accent, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Passengers", style = MaterialTheme.typography.titleMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.SemiBold)
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                booking!!.passengers.forEach { p ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("${p.title} ${p.firstName} ${p.lastName}", style = MaterialTheme.typography.bodyLarge, color = VelocityColors.TextMain)
+                                        Text(p.type, style = MaterialTheme.typography.bodySmall, color = VelocityColors.TextMuted)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Actions
+                    item {
+                        if ("CHECKIN" in booking!!.allowedActions) {
+                            Button(
+                                onClick = onNavigateToCheckIn,
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = VelocityColors.Accent)
+                            ) {
+                                Icon(Icons.Default.Send, null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Check In", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+                }
+            } else {
+                // Lookup form
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(48.dp))
+                    Icon(Icons.Default.Search, null, tint = VelocityColors.Accent, modifier = Modifier.size(80.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Find Your Booking", style = MaterialTheme.typography.headlineMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Enter your booking reference and last name", style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMuted)
+                    Spacer(modifier = Modifier.height(32.dp))
+                    
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(24.dp)) {
+                            WasmTextField(value = pnr, onValueChange = { pnr = it.uppercase().take(6) }, label = "Booking Reference (PNR)", placeholder = "e.g., ABC123")
+                            Spacer(modifier = Modifier.height(16.dp))
+                            WasmTextField(value = lastName, onValueChange = { lastName = it }, label = "Last Name", placeholder = "e.g., Smith")
+                            
+                            if (error != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        isLoading = true
+                                        error = null
+                                        when (val result = apiClient.retrieveBooking(pnr, lastName)) {
+                                            is com.fairair.app.api.ApiResult.Success -> booking = result.data
+                                            is com.fairair.app.api.ApiResult.Error -> error = result.message
+                                        }
+                                        isLoading = false
+                                    }
+                                },
+                                enabled = pnr.length == 6 && lastName.isNotBlank() && !isLoading,
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = VelocityColors.Accent)
+                            ) {
+                                if (isLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                else Text("Find Booking", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Membership Screen for Wasm
+// ============================================================================
+
+@Composable
+private fun WasmMembershipScreen(
+    apiClient: FairairApiClient,
+    localStorage: LocalStorage,
+    onBack: () -> Unit,
+    onNavigateToLogin: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var plans by remember { mutableStateOf<List<com.fairair.app.api.MembershipPlanDto>>(emptyList()) }
+    var subscription by remember { mutableStateOf<com.fairair.app.api.SubscriptionDto?>(null) }
+    var selectedPlan by remember { mutableStateOf<com.fairair.app.api.MembershipPlanDto?>(null) }
+
+    LaunchedEffect(Unit) {
+        when (val result = apiClient.getMembershipPlans()) {
+            is com.fairair.app.api.ApiResult.Success -> plans = result.data
+            is com.fairair.app.api.ApiResult.Error -> error = result.message
+        }
+        
+        localStorage.getAuthToken()?.let { token ->
+            when (val result = apiClient.getSubscription(token)) {
+                is com.fairair.app.api.ApiResult.Success -> subscription = result.data
+                is com.fairair.app.api.ApiResult.Error -> {} // Not subscribed
+            }
+        }
+        isLoading = false
+    }
+
+    VelocityThemeWithBackground {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = {
+                    if (selectedPlan != null) selectedPlan = null
+                    else onBack()
+                }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = VelocityColors.TextMain)
+                }
+                Text(
+                    text = if (selectedPlan != null) selectedPlan!!.name else "Membership",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = VelocityColors.TextMain,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = VelocityColors.Accent)
+                    }
+                }
+                error != null -> {
+                    Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(64.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(error!!, color = VelocityColors.TextMuted, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(onClick = { isLoading = true; error = null }, colors = ButtonDefaults.buttonColors(containerColor = VelocityColors.Accent)) {
+                            Text("Retry")
+                        }
+                    }
+                }
+                selectedPlan != null -> {
+                    // Plan details
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        item {
+                            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(selectedPlan!!.name, style = MaterialTheme.typography.headlineMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                    Text("${selectedPlan!!.flightsPerMonth} flights per month", style = MaterialTheme.typography.bodyLarge, color = VelocityColors.TextMuted)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(selectedPlan!!.monthlyPriceFormatted, style = MaterialTheme.typography.displaySmall, color = VelocityColors.Accent, fontWeight = FontWeight.Bold)
+                                    Text("/month", style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMuted)
+                                }
+                            }
+                        }
+                        
+                        item { Text("What's included", style = MaterialTheme.typography.titleLarge, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold) }
+                        
+                        items(selectedPlan!!.benefits) { benefit ->
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Check, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(benefit, style = MaterialTheme.typography.bodyLarge, color = VelocityColors.TextMain)
+                            }
+                        }
+                        
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = {
+                                    if (localStorage.getAuthToken() == null) {
+                                        onNavigateToLogin()
+                                    } else {
+                                        // Subscribe logic would go here
+                                    }
+                                },
+                                enabled = subscription == null,
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = VelocityColors.Accent)
+                            ) {
+                                Text(if (subscription != null) "Already Subscribed" else "Subscribe Now", fontWeight = FontWeight.SemiBold)
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+                    }
+                }
+                else -> {
+                    // Plans list
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        item {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                                Icon(Icons.Default.Star, null, tint = VelocityColors.Accent, modifier = Modifier.size(64.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("FairAir Membership", style = MaterialTheme.typography.headlineMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                Text("Unlimited flights, premium benefits", style = MaterialTheme.typography.bodyLarge, color = VelocityColors.TextMuted)
+                            }
+                        }
+                        
+                        if (subscription != null) {
+                            item {
+                                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                                    Column(modifier = Modifier.padding(20.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                            Column {
+                                                Text("Your Subscription", style = MaterialTheme.typography.labelMedium, color = VelocityColors.Accent)
+                                                Text(subscription!!.planName, style = MaterialTheme.typography.titleLarge, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                            }
+                                            Surface(color = Color(0xFF4CAF50).copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
+                                                Text("Active", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text("${subscription!!.flightsUsed} / ${subscription!!.flightsRemaining + subscription!!.flightsUsed}", style = MaterialTheme.typography.titleMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                                Text("Flights", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
+                                            }
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text("${subscription!!.guestPassesUsed} / ${subscription!!.guestPassesRemaining + subscription!!.guestPassesUsed}", style = MaterialTheme.typography.titleMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                                Text("Guest Passes", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        items(plans) { plan ->
+                            val isCurrent = subscription?.planId == plan.id
+                            GlassCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(if (isCurrent) Modifier.border(2.dp, VelocityColors.Accent, RoundedCornerShape(20.dp)) else Modifier)
+                                    .clickable { selectedPlan = plan }
+                            ) {
+                                Column(modifier = Modifier.padding(20.dp)) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                                        Column {
+                                            if (isCurrent) {
+                                                Surface(color = VelocityColors.Accent, shape = RoundedCornerShape(12.dp)) {
+                                                    Text("CURRENT PLAN", style = MaterialTheme.typography.labelSmall, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                                }
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                            }
+                                            Text(plan.name, style = MaterialTheme.typography.titleLarge, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                            Text("${plan.flightsPerMonth} flights/month", style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMuted)
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(plan.monthlyPriceFormatted, style = MaterialTheme.typography.headlineSmall, color = VelocityColors.Accent, fontWeight = FontWeight.Bold)
+                                            Text("/month", style = MaterialTheme.typography.bodySmall, color = VelocityColors.TextMuted)
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        if (plan.priorityBoarding) BenefitChip("Priority")
+                                        if (plan.loungeAccess) BenefitChip("Lounge")
+                                        if (plan.flexibleChanges) BenefitChip("Flexible")
+                                    }
+                                }
+                            }
+                        }
+                        
+                        item { Spacer(modifier = Modifier.height(24.dp)) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BenefitChip(text: String) {
+    Surface(color = VelocityColors.Accent.copy(alpha = 0.1f), shape = RoundedCornerShape(20.dp)) {
+        Text(text, style = MaterialTheme.typography.labelMedium, color = VelocityColors.Accent, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
     }
 }

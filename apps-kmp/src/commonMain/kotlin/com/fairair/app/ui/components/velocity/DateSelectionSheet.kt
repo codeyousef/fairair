@@ -39,9 +39,11 @@ import kotlinx.datetime.*
  * - Past dates disabled
  * - Current date indicator
  * - Optional price display for each date
+ * - Optional minimum date constraint
  *
  * @param title The title to display at the top
  * @param selectedDate The currently selected date, if any
+ * @param minDate Optional minimum selectable date (dates before this are disabled)
  * @param lowFares Optional map of date to low fare data for price display
  * @param isLoadingPrices Whether prices are currently being loaded
  * @param onSelect Callback when a date is selected
@@ -52,6 +54,7 @@ import kotlinx.datetime.*
 fun DateSelectionSheet(
     title: String,
     selectedDate: LocalDate?,
+    minDate: LocalDate? = null,
     lowFares: Map<LocalDate, LowFareDateDto> = emptyMap(),
     isLoadingPrices: Boolean = false,
     onSelect: (LocalDate) -> Unit,
@@ -60,9 +63,10 @@ fun DateSelectionSheet(
 ) {
     val typography = VelocityTheme.typography
     val today = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date }
+    val effectiveMinDate = minDate ?: today
 
     var displayedMonth by remember {
-        mutableStateOf(selectedDate ?: today)
+        mutableStateOf(selectedDate ?: effectiveMinDate)
     }
     
     // Notify when month changes
@@ -196,18 +200,18 @@ fun DateSelectionSheet(
                     val date = LocalDate(displayedMonth.year, displayedMonth.month, day)
                     val isSelected = date == selectedDate
                     val isToday = date == today
-                    val isPast = date < today
+                    val isDisabled = date < effectiveMinDate
                     val lowFare = lowFares[date]
 
                     DayCellWithPrice(
                         day = day,
                         isSelected = isSelected,
                         isToday = isToday,
-                        isPast = isPast,
+                        isPast = isDisabled,
                         lowFare = lowFare,
                         showPrices = lowFares.isNotEmpty(),
                         onClick = {
-                            if (!isPast) {
+                            if (!isDisabled) {
                                 onSelect(date)
                                 onDismiss()
                             }
@@ -422,6 +426,7 @@ private fun getFirstDayOfWeek(date: LocalDate): Int {
  * @param isVisible Whether the sheet is visible
  * @param title The title to display
  * @param selectedDate The currently selected date
+ * @param minDate Optional minimum selectable date (dates before this are disabled)
  * @param lowFares Map of date to low fare data for price display
  * @param isLoadingPrices Whether prices are currently being loaded
  * @param onSelect Callback when a date is selected
@@ -434,6 +439,7 @@ fun DateSelectionBottomSheet(
     isVisible: Boolean,
     title: String,
     selectedDate: LocalDate?,
+    minDate: LocalDate? = null,
     lowFares: Map<LocalDate, LowFareDateDto> = emptyMap(),
     isLoadingPrices: Boolean = false,
     onSelect: (LocalDate) -> Unit,
@@ -458,6 +464,7 @@ fun DateSelectionBottomSheet(
             DateSelectionSheet(
                 title = title,
                 selectedDate = selectedDate,
+                minDate = minDate,
                 lowFares = lowFares,
                 isLoadingPrices = isLoadingPrices,
                 onSelect = onSelect,

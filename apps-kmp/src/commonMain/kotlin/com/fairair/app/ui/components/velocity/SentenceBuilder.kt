@@ -12,20 +12,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.fairair.app.localization.AppStrings
 import com.fairair.app.ui.screens.search.SearchField
+import com.fairair.app.ui.screens.search.TripType
 import com.fairair.app.ui.theme.VelocityTheme
 
 /**
  * Natural language sentence builder for flight search.
  *
  * Displays a conversational sentence with tappable inline fields:
- * "I want to fly from [Origin] to [Destination] departing on [Date] with [Passengers]."
+ * "I want to fly from [Origin] to [Destination] departing on [Date] returning on [Return Date] with [Passengers]."
  *
  * @param originValue The selected origin city name, or null if not selected
  * @param destinationValue The selected destination city name, or null if not selected
  * @param dateValue The formatted departure date, or null if not selected
+ * @param returnDateValue The formatted return date, or null if not selected (for round-trip)
  * @param passengerValue The formatted passenger count string
+ * @param tripType The type of trip (one-way, round-trip, multi-city)
  * @param activeField The currently active/focused field (for highlighting)
  * @param onFieldClick Callback when a field is tapped
+ * @param onTripTypeChange Callback when trip type is changed
  * @param strings Localized strings for the sentence parts
  * @param modifier Modifier to apply to the component
  */
@@ -35,9 +39,12 @@ fun SentenceBuilder(
     originValue: String?,
     destinationValue: String?,
     dateValue: String?,
+    returnDateValue: String? = null,
     passengerValue: String,
+    tripType: TripType = TripType.ROUND_TRIP,
     activeField: SearchField?,
     onFieldClick: (SearchField) -> Unit,
+    onTripTypeChange: ((TripType) -> Unit)? = null,
     strings: AppStrings,
     modifier: Modifier = Modifier
 ) {
@@ -46,6 +53,16 @@ fun SentenceBuilder(
     Column(
         modifier = modifier.padding(horizontal = 24.dp)
     ) {
+        // Trip type selector
+        if (onTripTypeChange != null) {
+            TripTypeSelector(
+                selectedType = tripType,
+                onTypeSelected = onTripTypeChange,
+                strings = strings,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+
         FlowRow(
             horizontalArrangement = Arrangement.Start,
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -101,6 +118,24 @@ fun SentenceBuilder(
                 modifier = Modifier.padding(end = 8.dp)
             )
 
+            // Return date section (only for round-trip)
+            if (tripType == TripType.ROUND_TRIP) {
+                // "returning on"
+                SentenceText(
+                    text = strings.velocitySentenceReturning,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+
+                // [Return Date] - tappable field
+                MagicInputField(
+                    value = returnDateValue,
+                    placeholder = strings.velocitySelectReturnDate,
+                    onClick = { onFieldClick(SearchField.RETURN_DATE) },
+                    isActive = activeField == SearchField.RETURN_DATE,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
+
             // "with"
             SentenceText(
                 text = strings.velocitySentenceWith,
@@ -140,7 +175,7 @@ private fun SentenceText(
 /**
  * Arabic version of the sentence builder with RTL flow.
  *
- * Arabic sentence: "أبي أسافر من [الرياض] إلى [دبي] بتاريخ [1 ديسمبر] لعدد [1 بالغ]"
+ * Arabic sentence: "أبي أسافر من [الرياض] إلى [دبي] بتاريخ [1 ديسمبر] والعودة بتاريخ [8 ديسمبر] لعدد [1 بالغ]"
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -148,9 +183,12 @@ fun SentenceBuilderArabic(
     originValue: String?,
     destinationValue: String?,
     dateValue: String?,
+    returnDateValue: String? = null,
     passengerValue: String,
+    tripType: TripType = TripType.ROUND_TRIP,
     activeField: SearchField?,
     onFieldClick: (SearchField) -> Unit,
+    onTripTypeChange: ((TripType) -> Unit)? = null,
     strings: AppStrings,
     modifier: Modifier = Modifier
 ) {
@@ -159,6 +197,16 @@ fun SentenceBuilderArabic(
     Column(
         modifier = modifier.padding(horizontal = 24.dp)
     ) {
+        // Trip type selector
+        if (onTripTypeChange != null) {
+            TripTypeSelector(
+                selectedType = tripType,
+                onTypeSelected = onTripTypeChange,
+                strings = strings,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+
         FlowRow(
             horizontalArrangement = Arrangement.Start,
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -217,6 +265,25 @@ fun SentenceBuilderArabic(
                 isActive = activeField == SearchField.DATE,
                 modifier = Modifier.padding(end = 8.dp)
             )
+
+            // Return date section (only for round-trip)
+            if (tripType == TripType.ROUND_TRIP) {
+                // "والعودة بتاريخ"
+                Text(
+                    text = strings.velocitySentenceReturning,
+                    style = typography.sentenceBuilder,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+
+                // [Return Date]
+                MagicInputField(
+                    value = returnDateValue,
+                    placeholder = strings.velocitySelectReturnDate,
+                    onClick = { onFieldClick(SearchField.RETURN_DATE) },
+                    isActive = activeField == SearchField.RETURN_DATE,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
 
             // "لعدد"
             Text(

@@ -29,4 +29,9 @@ sealed interface AppScreen {
     interface Confirmation : AppScreen
     interface SavedBookings : AppScreen
     interface Settings : AppScreen
+    interface CheckIn : AppScreen
+    interface ManageBooking : AppScreen
+    interface Membership : AppScreen
+    interface Help : AppScreen
+    interface Contact : AppScreen
 }

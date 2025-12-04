@@ -20,7 +20,17 @@ enum class SearchField {
     DATE,
 
     /**
+     * Return date selector - "returning on [Date]" (for round-trip only)
+     */
+    RETURN_DATE,
+
+    /**
      * Passenger count selector - "with [Passengers]"
      */
-    PASSENGERS
+    PASSENGERS,
+
+    /**
+     * Trip type selector - "One-way / Round-trip / Multi-city"
+     */
+    TRIP_TYPE
 }

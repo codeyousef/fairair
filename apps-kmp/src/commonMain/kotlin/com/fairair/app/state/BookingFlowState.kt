@@ -95,8 +95,16 @@ data class SearchCriteria(
     val origin: StationDto,
     val destination: StationDto,
     val departureDate: String,
-    val passengers: PassengerCountsDto
-)
+    val returnDate: String? = null,
+    val passengers: PassengerCountsDto,
+    val tripType: com.fairair.app.ui.screens.search.TripType = com.fairair.app.ui.screens.search.TripType.ONE_WAY
+) {
+    /**
+     * Whether this is a round-trip search.
+     */
+    val isRoundTrip: Boolean
+        get() = tripType == com.fairair.app.ui.screens.search.TripType.ROUND_TRIP && returnDate != null
+}
 
 /**
  * Selected flight with fare information.
