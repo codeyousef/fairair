@@ -213,12 +213,19 @@ private fun WasmAppContent() {
     // Wrap in localization provider
     LocalizationProvider(localizationState) {
         VelocityTheme(isRtl = localizationState.isRtl) {
-            // Full-width background container - uses solid deep background
-            // Individual screens add their own gradient overlays as needed
+            // Full-width background container - uses same gradient as VelocityThemeWithBackground
+            // so the sides match the screen content
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(VelocityColors.BackgroundDeep),
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                VelocityColors.GradientStart,
+                                VelocityColors.GradientEnd
+                            )
+                        )
+                    ),
                 contentAlignment = Alignment.TopCenter
             ) {
                 // Desktop-aware wrapper - constrains content width on wide screens
