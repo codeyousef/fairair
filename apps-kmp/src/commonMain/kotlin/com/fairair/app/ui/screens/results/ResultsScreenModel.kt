@@ -2,8 +2,8 @@ package com.fairair.app.ui.screens.results
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import com.fairair.app.api.FlightDto
-import com.fairair.app.api.FlightSearchResponseDto
+import com.fairair.contract.dto.FlightDto
+import com.fairair.contract.dto.FlightSearchResponseDto
 import com.fairair.app.state.BookingFlowState
 import com.fairair.app.state.SelectedFlight
 import kotlinx.coroutines.flow.MutableStateFlow

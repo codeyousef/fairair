@@ -16,7 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.fairair.app.api.FlightDto
+import com.fairair.contract.dto.FlightDto
 import com.fairair.app.localization.AppStrings
 import com.fairair.app.ui.components.velocity.*
 import com.fairair.app.ui.theme.VelocityColors

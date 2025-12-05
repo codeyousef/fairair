@@ -34,9 +34,16 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fairair.app.api.ApiResult
 import com.fairair.app.api.FairairApiClient
+import com.fairair.app.api.fares
 import kotlinx.browser.window
-import com.fairair.app.api.FlightDto
+import com.fairair.contract.dto.BookingConfirmationDto
+import com.fairair.contract.dto.CheckInLookupResponseDto
+import com.fairair.contract.dto.CheckInProcessRequestDto
+import com.fairair.contract.dto.CheckInResultDto
+import com.fairair.contract.dto.FlightDto
+import com.fairair.contract.dto.ManageBookingResponseDto
 import com.fairair.contract.dto.UserInfoDto
 import com.fairair.app.localization.AppLanguage
 import com.fairair.app.localization.LocalizationProvider
@@ -2665,7 +2672,7 @@ private fun WasmSavedBookingsScreen(
     onNavigateToLogin: () -> Unit
 ) {
     val apiClient = koinInject<FairairApiClient>()
-    var bookings by remember { mutableStateOf<List<com.fairair.app.api.BookingConfirmationDto>>(emptyList()) }
+    var bookings by remember { mutableStateOf<List<BookingConfirmationDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isUnauthorized by remember { mutableStateOf(false) }
@@ -2684,11 +2691,11 @@ private fun WasmSavedBookingsScreen(
         isUnauthorized = false
         
         when (val result = apiClient.getMyBookings(authToken)) {
-            is com.fairair.app.api.ApiResult.Success -> {
+            is ApiResult.Success -> {
                 bookings = result.data
                 isLoading = false
             }
-            is com.fairair.app.api.ApiResult.Error -> {
+            is ApiResult.Error -> {
                 // Check if it's an auth error (401)
                 if (result.code == "HTTP_401" || result.message.contains("expired", ignoreCase = true) || result.message.contains("unauthorized", ignoreCase = true)) {
                     isUnauthorized = true
@@ -2819,7 +2826,7 @@ private fun WasmSavedBookingsScreen(
 }
 
 @Composable
-private fun BookingCard(booking: com.fairair.app.api.BookingConfirmationDto) {
+private fun BookingCard(booking: BookingConfirmationDto) {
     GlassCard(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -3222,8 +3229,8 @@ private fun WasmCheckInScreen(
     var lastName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var lookupResult by remember { mutableStateOf<com.fairair.app.api.CheckInLookupResponseDto?>(null) }
-    var checkInResult by remember { mutableStateOf<com.fairair.app.api.CheckInResultDto?>(null) }
+    var lookupResult by remember { mutableStateOf<CheckInLookupResponseDto?>(null) }
+    var checkInResult by remember { mutableStateOf<CheckInResultDto?>(null) }
     var selectedPassengers by remember { mutableStateOf(setOf<String>()) }
 
     VelocityThemeWithBackground {
@@ -3404,15 +3411,15 @@ private fun WasmCheckInScreen(
                                     scope.launch {
                                         isLoading = true
                                         error = null
-                                        val request = com.fairair.app.api.CheckInProcessRequestDto(
+                                        val request = CheckInProcessRequestDto(
                                             pnr = pnr,
                                             passengerIds = selectedPassengers.toList()
                                         )
                                         when (val result = apiClient.processCheckIn(request)) {
-                                            is com.fairair.app.api.ApiResult.Success -> {
+                                            is ApiResult.Success -> {
                                                 checkInResult = result.data
                                             }
-                                            is com.fairair.app.api.ApiResult.Error -> {
+                                            is ApiResult.Error -> {
                                                 error = result.message
                                             }
                                         }
@@ -3493,7 +3500,7 @@ private fun WasmCheckInScreen(
                                                 isLoading = true
                                                 error = null
                                                 when (val result = apiClient.lookupForCheckIn(pnr, lastName)) {
-                                                    is com.fairair.app.api.ApiResult.Success -> {
+                                                    is ApiResult.Success -> {
                                                         if (result.data.isEligibleForCheckIn) {
                                                             lookupResult = result.data
                                                             selectedPassengers = result.data.passengers
@@ -3504,7 +3511,7 @@ private fun WasmCheckInScreen(
                                                             error = result.data.eligibilityMessage ?: "Check-in not available"
                                                         }
                                                     }
-                                                    is com.fairair.app.api.ApiResult.Error -> {
+                                                    is ApiResult.Error -> {
                                                         error = result.message
                                                     }
                                                 }
@@ -3547,7 +3554,7 @@ private fun WasmManageBookingScreen(
     var lastName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var booking by remember { mutableStateOf<com.fairair.app.api.ManageBookingResponseDto?>(null) }
+    var booking by remember { mutableStateOf<ManageBookingResponseDto?>(null) }
 
     VelocityThemeWithBackground {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -3725,8 +3732,8 @@ private fun WasmManageBookingScreen(
                                         isLoading = true
                                         error = null
                                         when (val result = apiClient.retrieveBooking(pnr, lastName)) {
-                                            is com.fairair.app.api.ApiResult.Success -> booking = result.data
-                                            is com.fairair.app.api.ApiResult.Error -> error = result.message
+                                            is ApiResult.Success -> booking = result.data
+                                            is ApiResult.Error -> error = result.message
                                         }
                                         isLoading = false
                                     }
@@ -3767,14 +3774,14 @@ private fun WasmMembershipScreen(
 
     LaunchedEffect(Unit) {
         when (val result = apiClient.getMembershipPlans()) {
-            is com.fairair.app.api.ApiResult.Success -> plans = result.data
-            is com.fairair.app.api.ApiResult.Error -> error = result.message
+            is ApiResult.Success -> plans = result.data
+            is ApiResult.Error -> error = result.message
         }
         
         localStorage.getAuthToken()?.let { token ->
             when (val result = apiClient.getSubscription(token)) {
-                is com.fairair.app.api.ApiResult.Success -> subscription = result.data
-                is com.fairair.app.api.ApiResult.Error -> {} // Not subscribed
+                is ApiResult.Success -> subscription = result.data
+                is ApiResult.Error -> {} // Not subscribed
             }
         }
         isLoading = false

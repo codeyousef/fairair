@@ -12,7 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
-import com.fairair.app.api.StationDto
+import com.fairair.contract.dto.StationDto
 import com.fairair.app.localization.AppStrings
 import com.fairair.app.ui.components.velocity.*
 import com.fairair.app.ui.theme.VelocityColors

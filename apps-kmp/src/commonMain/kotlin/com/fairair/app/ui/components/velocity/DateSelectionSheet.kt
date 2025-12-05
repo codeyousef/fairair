@@ -24,7 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.fairair.app.api.LowFareDateDto
+import com.fairair.contract.dto.LowFareDateDto
 import com.fairair.app.ui.theme.VelocityColors
 import com.fairair.app.ui.theme.VelocityTheme
 import kotlinx.datetime.*
@@ -310,13 +310,14 @@ private fun DayCellWithPrice(
         )
         
         if (showPrices) {
+            val priceFormatted = lowFare?.priceFormatted
             val priceText = when {
                 isPast -> ""
                 lowFare == null -> ""
                 !lowFare.available -> "—"
-                lowFare.priceFormatted != null -> {
+                priceFormatted != null -> {
                     // Extract just the number part (e.g., "350" from "350.00 SAR")
-                    lowFare.priceFormatted.split(" ").firstOrNull()?.split(".")?.firstOrNull() ?: ""
+                    priceFormatted.split(" ").firstOrNull()?.split(".")?.firstOrNull() ?: ""
                 }
                 else -> ""
             }

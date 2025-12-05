@@ -4,6 +4,50 @@ import com.fairair.contract.api.ApiRoutes
 import com.fairair.contract.dto.LoginRequestDto
 import com.fairair.contract.dto.LoginResponseDto
 import com.fairair.contract.dto.UserInfoDto
+import com.fairair.contract.dto.RouteMapDto
+import com.fairair.contract.dto.StationDto
+import com.fairair.contract.dto.FlightSearchRequestDto
+import com.fairair.contract.dto.PassengerCountsDto
+import com.fairair.contract.dto.FlightSearchResponseDto
+import com.fairair.contract.dto.FlightDto
+import com.fairair.contract.dto.FareFamilyDto
+import com.fairair.contract.dto.FareInclusionsDto
+import com.fairair.contract.dto.LowFaresResponseDto
+import com.fairair.contract.dto.LowFareDateDto
+import com.fairair.contract.dto.BookingRequestDto
+import com.fairair.contract.dto.PassengerDto
+import com.fairair.contract.dto.AncillaryDto
+import com.fairair.contract.dto.PaymentDto
+import com.fairair.contract.dto.BookingConfirmationDto
+import com.fairair.contract.dto.FlightSummaryDto
+import com.fairair.contract.dto.PassengerSummaryDto
+import com.fairair.contract.dto.BookingErrorDto
+import com.fairair.contract.dto.CheckInLookupRequestDto
+import com.fairair.contract.dto.CheckInLookupResponseDto
+import com.fairair.contract.dto.CheckInFlightDto
+import com.fairair.contract.dto.CheckInPassengerDto
+import com.fairair.contract.dto.CheckInProcessRequestDto
+import com.fairair.contract.dto.SeatPreferenceDto
+import com.fairair.contract.dto.CheckInResultDto
+import com.fairair.contract.dto.CheckedInPassengerDto
+import com.fairair.contract.dto.BoardingPassDto
+import com.fairair.contract.dto.RetrieveBookingRequestDto
+import com.fairair.contract.dto.ManageBookingResponseDto
+import com.fairair.contract.dto.ManageBookingFlightDto
+import com.fairair.contract.dto.ManageBookingPassengerDto
+import com.fairair.contract.dto.BookedAncillaryDto
+import com.fairair.contract.dto.PaymentSummaryDto
+import com.fairair.contract.dto.ModifyBookingRequestDto
+import com.fairair.contract.dto.BookingModificationsDto
+import com.fairair.contract.dto.PassengerUpdateDto
+import com.fairair.contract.dto.ModifyBookingResponseDto
+import com.fairair.contract.dto.CancelBookingRequestDto
+import com.fairair.contract.dto.CancelBookingResponseDto
+import com.fairair.contract.dto.SeatMapDto
+import com.fairair.contract.dto.SeatRowDto
+import com.fairair.contract.dto.SeatDto
+import com.fairair.contract.dto.SeatLegendDto
+import com.fairair.contract.dto.MealOptionDto
 import com.fairair.contract.model.MembershipPlan
 import com.fairair.contract.model.Subscription
 import com.fairair.contract.model.SubscribeRequest
@@ -630,147 +674,12 @@ sealed class ApiResult<out T> {
     }
 }
 
-// DTO classes for API communication
-// Auth DTOs are imported from com.fairair.contract.dto
-
-@Serializable
-data class RouteMapDto(
-    val routes: Map<String, List<String>>
-)
-
-@Serializable
-data class StationDto(
-    val code: String,
-    val name: String,
-    val city: String,
-    val country: String
-)
-
-@Serializable
-data class FlightSearchRequestDto(
-    val origin: String,
-    val destination: String,
-    val departureDate: String,
-    val returnDate: String? = null,
-    val passengers: PassengerCountsDto
-)
-
-@Serializable
-data class PassengerCountsDto(
-    val adults: Int,
-    val children: Int,
-    val infants: Int
-)
-
-@Serializable
-data class FlightSearchResponseDto(
-    val flights: List<FlightDto>,
-    val searchId: String = ""
-)
-
-/**
- * Response DTO for low-fare calendar.
- */
-@Serializable
-data class LowFaresResponseDto(
-    val origin: String,
-    val destination: String,
-    val dates: List<LowFareDateDto>
-)
-
-/**
- * DTO for a single date's lowest fare.
- */
-@Serializable
-data class LowFareDateDto(
-    /** The date in ISO format (YYYY-MM-DD) */
-    val date: String,
-    /** The lowest fare price in minor units, or null if no flights */
-    val priceMinor: Long? = null,
-    /** Formatted price display (e.g., "350 SAR"), or null */
-    val priceFormatted: String? = null,
-    /** Currency code */
-    val currency: String? = null,
-    /** The fare family code of the lowest fare */
-    val fareFamily: String? = null,
-    /** Number of flights available on this date */
-    val flightsAvailable: Int = 0,
-    /** Whether flights are available on this date */
-    val available: Boolean = false
-)
-
-/**
- * Flight DTO matching backend SearchController.FlightDto
- */
-@Serializable
-data class FlightDto(
-    val flightNumber: String,
-    val origin: String,
-    val destination: String,
-    val departureTime: String,
-    val arrivalTime: String,
-    val durationMinutes: Int = 0,
-    val durationFormatted: String = "",
-    val aircraft: String = "",
-    val fareFamilies: List<FareFamilyDto> = emptyList(),
-    val seatsAvailable: Int = 0,
-    val seatsBooked: Int = 0
-) {
-    /** Convenience property for display */
-    val duration: String get() = durationFormatted.ifEmpty { "${durationMinutes}m" }
-
-    /** Convert fareFamilies to simpler fares for UI display */
-    val fares: List<FareDto> get() = fareFamilies.map { ff ->
-        FareDto(
-            fareFamily = ff.name,
-            fareFamilyCode = ff.code,
-            basePrice = ff.priceFormatted,
-            totalPrice = ff.priceFormatted,
-            currency = ff.currency,
-            inclusions = buildInclusionsList(ff.inclusions)
-        )
-    }
-
-    private fun buildInclusionsList(inclusions: FareInclusionsDto): List<String> {
-        val list = mutableListOf<String>()
-        list.add("Carry-on: ${inclusions.carryOnBag}")
-        inclusions.checkedBag?.let { list.add("Checked bag: $it") }
-        list.add("Seat: ${inclusions.seatSelection}")
-        if (inclusions.priorityBoarding) list.add("Priority boarding")
-        if (inclusions.loungeAccess) list.add("Lounge access")
-        return list
-    }
-}
-
-/**
- * Fare family DTO matching backend SearchController.FareFamilyDto
- */
-@Serializable
-data class FareFamilyDto(
-    val code: String,
-    val name: String,
-    val priceMinor: Long,
-    val priceFormatted: String,
-    val currency: String,
-    val inclusions: FareInclusionsDto
-)
-
-/**
- * Fare inclusions DTO matching backend SearchController.FareInclusionsDto
- */
-@Serializable
-data class FareInclusionsDto(
-    val carryOnBag: String,
-    val checkedBag: String? = null,
-    val seatSelection: String,
-    val changePolicy: String,
-    val cancellationPolicy: String,
-    val priorityBoarding: Boolean,
-    val loungeAccess: Boolean
-)
+// DTO classes are now imported from com.fairair.contract.dto
+// Only keep local helper types that extend shared DTOs
 
 /**
  * Simplified fare DTO for UI display.
+ * This is a frontend-specific type that adapts shared DTOs for UI rendering.
  */
 @Serializable
 data class FareDto(
@@ -782,320 +691,35 @@ data class FareDto(
     val inclusions: List<String> = emptyList()
 )
 
-@Serializable
-data class BookingRequestDto(
-    val searchId: String = "",
-    val flightNumber: String,
-    val fareFamily: String,
-    val passengers: List<PassengerDto>,
-    val ancillaries: List<AncillaryDto> = emptyList(),
-    val contactEmail: String,
-    val contactPhone: String = "",
-    val payment: PaymentDto
-)
+/**
+ * Computed property to get fares list from FlightDto.
+ * This is a convenience property for UI display.
+ */
+val FlightDto.fares: List<FareDto>
+    get() = fareFamilies.map { ff ->
+        FareDto(
+            fareFamily = ff.name,
+            fareFamilyCode = ff.code,
+            basePrice = ff.priceFormatted,
+            totalPrice = ff.priceFormatted,
+            currency = ff.currency,
+            inclusions = buildInclusionsList(ff.inclusions)
+        )
+    }
 
-@Serializable
-data class PassengerDto(
-    val type: String,
-    val title: String,
-    val firstName: String,
-    val lastName: String,
-    val dateOfBirth: String,
-    val nationality: String = "",
-    val documentId: String = ""
-)
+/**
+ * Extension function to convert FlightDto's fareFamilies to simpler fares for UI display.
+ */
+fun FlightDto.toFares(): List<FareDto> = fares
 
-@Serializable
-data class AncillaryDto(
-    val type: String,
-    val passengerIndex: Int,
-    val priceMinor: Long = 0,
-    val currency: String = "SAR"
-)
-
-@Serializable
-data class PaymentDto(
-    val cardholderName: String,
-    val cardNumberLast4: String,
-    val totalAmountMinor: Long,
-    val currency: String
-)
-
-@Serializable
-data class FlightSummaryDto(
-    val flightNumber: String,
-    val origin: String,
-    val destination: String,
-    val departureTime: String,
-    val fareFamily: String
-)
-
-@Serializable
-data class PassengerSummaryDto(
-    val fullName: String,
-    val type: String
-)
-
-@Serializable
-data class BookingConfirmationDto(
-    val pnr: String = "",
-    val bookingReference: String = "",
-    val flight: FlightSummaryDto? = null,
-    val passengers: List<PassengerSummaryDto> = emptyList(),
-    val status: String = "CONFIRMED",
-    val totalPaidMinor: Long = 0,
-    val totalPaidFormatted: String = "0",
-    val currency: String = "SAR",
-    val createdAt: String = ""
-) {
-    /** Convenience property for display */
-    val totalPrice: String get() = totalPaidFormatted.ifEmpty { (totalPaidMinor / 100.0).toString() }
+private fun buildInclusionsList(inclusions: FareInclusionsDto): List<String> {
+    val list = mutableListOf<String>()
+    list.add("Carry-on: ${inclusions.carryOnBag}")
+    inclusions.checkedBag?.let { list.add("Checked bag: $it") }
+    list.add("Seat: ${inclusions.seatSelection}")
+    if (inclusions.priorityBoarding) list.add("Priority boarding")
+    if (inclusions.loungeAccess) list.add("Lounge access")
+    return list
 }
 
-// ============================================================================
-// Check-In DTOs
-// ============================================================================
 
-@Serializable
-data class CheckInLookupRequestDto(
-    val pnr: String,
-    val lastName: String
-)
-
-@Serializable
-data class CheckInLookupResponseDto(
-    val pnr: String,
-    val flight: CheckInFlightDto,
-    val passengers: List<CheckInPassengerDto>,
-    val isEligibleForCheckIn: Boolean,
-    val eligibilityMessage: String? = null
-)
-
-@Serializable
-data class CheckInFlightDto(
-    val flightNumber: String,
-    val origin: String,
-    val destination: String,
-    val departureTime: String,
-    val arrivalTime: String,
-    val departureDate: String,
-    val aircraft: String = ""
-)
-
-@Serializable
-data class CheckInPassengerDto(
-    val passengerId: String,
-    val firstName: String,
-    val lastName: String,
-    val type: String,
-    val isCheckedIn: Boolean = false,
-    val seatAssignment: String? = null,
-    val boardingGroup: String? = null
-)
-
-@Serializable
-data class CheckInProcessRequestDto(
-    val pnr: String,
-    val passengerIds: List<String>,
-    val seatPreferences: Map<String, SeatPreferenceDto> = emptyMap()
-)
-
-@Serializable
-data class SeatPreferenceDto(
-    val preferWindow: Boolean = false,
-    val preferAisle: Boolean = false,
-    val preferFront: Boolean = false
-)
-
-@Serializable
-data class CheckInResultDto(
-    val pnr: String,
-    val checkedInPassengers: List<CheckedInPassengerDto>,
-    val message: String
-)
-
-@Serializable
-data class CheckedInPassengerDto(
-    val passengerId: String,
-    val name: String,
-    val seatNumber: String,
-    val boardingGroup: String,
-    val boardingPassUrl: String? = null
-)
-
-@Serializable
-data class BoardingPassDto(
-    val pnr: String,
-    val flightNumber: String,
-    val passengerName: String,
-    val seatNumber: String,
-    val boardingGroup: String,
-    val gate: String? = null,
-    val boardingTime: String? = null,
-    val departureTime: String,
-    val origin: String,
-    val destination: String,
-    val barcodeData: String
-)
-
-// ============================================================================
-// Manage Booking DTOs
-// ============================================================================
-
-@Serializable
-data class RetrieveBookingRequestDto(
-    val pnr: String,
-    val lastName: String
-)
-
-@Serializable
-data class ManageBookingResponseDto(
-    val pnr: String,
-    val status: String,
-    val flight: ManageBookingFlightDto,
-    val passengers: List<ManageBookingPassengerDto>,
-    val ancillaries: List<BookedAncillaryDto>,
-    val payment: PaymentSummaryDto,
-    val allowedActions: List<String>
-)
-
-@Serializable
-data class ManageBookingFlightDto(
-    val flightNumber: String,
-    val origin: String,
-    val originName: String,
-    val destination: String,
-    val destinationName: String,
-    val departureTime: String,
-    val arrivalTime: String,
-    val departureDate: String,
-    val fareFamily: String
-)
-
-@Serializable
-data class ManageBookingPassengerDto(
-    val passengerId: String,
-    val title: String,
-    val firstName: String,
-    val lastName: String,
-    val type: String,
-    val dateOfBirth: String? = null
-)
-
-@Serializable
-data class BookedAncillaryDto(
-    val type: String,
-    val description: String,
-    val passengerId: String,
-    val priceFormatted: String
-)
-
-@Serializable
-data class PaymentSummaryDto(
-    val totalPaidMinor: Long,
-    val totalPaidFormatted: String,
-    val currency: String,
-    val paymentMethod: String,
-    val lastFourDigits: String? = null
-)
-
-@Serializable
-data class ModifyBookingRequestDto(
-    val pnr: String,
-    val lastName: String,
-    val modifications: BookingModificationsDto
-)
-
-@Serializable
-data class BookingModificationsDto(
-    val newFlightNumber: String? = null,
-    val newDepartureDate: String? = null,
-    val passengerUpdates: List<PassengerUpdateDto> = emptyList(),
-    val addAncillaries: List<AncillaryDto> = emptyList(),
-    val removeAncillaries: List<String> = emptyList()
-)
-
-@Serializable
-data class PassengerUpdateDto(
-    val passengerId: String,
-    val firstName: String? = null,
-    val lastName: String? = null
-)
-
-@Serializable
-data class ModifyBookingResponseDto(
-    val pnr: String,
-    val success: Boolean,
-    val message: String,
-    val priceDifferenceFormatted: String? = null,
-    val requiresPayment: Boolean = false
-)
-
-@Serializable
-data class CancelBookingRequestDto(
-    val pnr: String,
-    val lastName: String,
-    val reason: String? = null
-)
-
-@Serializable
-data class CancelBookingResponseDto(
-    val pnr: String,
-    val success: Boolean,
-    val message: String,
-    val refundAmountFormatted: String? = null,
-    val refundMethod: String? = null
-)
-
-// ============================================================================
-// Seat Map DTOs
-// ============================================================================
-
-@Serializable
-data class SeatMapDto(
-    val flightNumber: String,
-    val aircraft: String,
-    val rows: List<SeatRowDto>,
-    val legend: List<SeatLegendDto>
-)
-
-@Serializable
-data class SeatRowDto(
-    val rowNumber: Int,
-    val seats: List<SeatDto>,
-    val isExitRow: Boolean = false
-)
-
-@Serializable
-data class SeatDto(
-    val seatNumber: String,
-    val status: String,
-    val type: String,
-    val priceMinor: Long = 0,
-    val priceFormatted: String = "Free",
-    val features: List<String> = emptyList()
-)
-
-@Serializable
-data class SeatLegendDto(
-    val type: String,
-    val label: String,
-    val color: String
-)
-
-// ============================================================================
-// Meal DTOs
-// ============================================================================
-
-@Serializable
-data class MealOptionDto(
-    val id: String,
-    val name: String,
-    val description: String,
-    val category: String,
-    val priceMinor: Long,
-    val priceFormatted: String,
-    val imageUrl: String? = null,
-    val dietaryInfo: List<String> = emptyList(),
-    val available: Boolean = true
-)

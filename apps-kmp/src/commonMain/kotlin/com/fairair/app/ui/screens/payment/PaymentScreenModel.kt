@@ -2,11 +2,11 @@ package com.fairair.app.ui.screens.payment
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import com.fairair.app.api.BookingRequestDto
+import com.fairair.contract.dto.BookingRequestDto
 import com.fairair.app.api.FairairApiClient
 import com.fairair.app.api.ApiResult
-import com.fairair.app.api.PassengerDto
-import com.fairair.app.api.PaymentDto
+import com.fairair.contract.dto.PassengerDto
+import com.fairair.contract.dto.PaymentDto
 import com.fairair.app.state.BookingFlowState
 import com.fairair.app.util.toDisplayMessage
 import kotlinx.coroutines.flow.MutableStateFlow

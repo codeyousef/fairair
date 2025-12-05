@@ -8,6 +8,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.fairair.app.api.fares
 import com.fairair.app.localization.LocalLocalization
 import com.fairair.app.localization.LocalStrings
 import com.fairair.app.navigation.AppScreen

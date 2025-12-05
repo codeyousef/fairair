@@ -1,6 +1,6 @@
 package com.fairair.app.persistence
 
-import com.fairair.app.api.BookingConfirmationDto
+import com.fairair.contract.dto.BookingConfirmationDto
 import com.fairair.contract.dto.UserInfoDto
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.Flow

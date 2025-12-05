@@ -3,6 +3,10 @@ package com.fairair.app.ui.screens.search
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.fairair.app.api.*
+import com.fairair.contract.dto.FlightSearchRequestDto
+import com.fairair.contract.dto.LowFareDateDto
+import com.fairair.contract.dto.PassengerCountsDto
+import com.fairair.contract.dto.StationDto
 import com.fairair.app.state.BookingFlowState
 import com.fairair.app.util.toDisplayMessage
 import com.fairair.app.state.SearchCriteria

@@ -1,6 +1,10 @@
 package com.fairair.app.viewmodel
 
 import com.fairair.app.api.*
+import com.fairair.contract.dto.FlightSearchRequestDto
+import com.fairair.contract.dto.LowFareDateDto
+import com.fairair.contract.dto.PassengerCountsDto
+import com.fairair.contract.dto.StationDto
 import com.fairair.app.state.BookingFlowState
 import com.fairair.app.state.SearchCriteria
 import com.fairair.app.ui.components.velocity.DestinationTheme

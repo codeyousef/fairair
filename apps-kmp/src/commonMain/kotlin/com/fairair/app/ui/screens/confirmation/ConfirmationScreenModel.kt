@@ -2,7 +2,7 @@ package com.fairair.app.ui.screens.confirmation
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import com.fairair.app.api.BookingConfirmationDto
+import com.fairair.contract.dto.BookingConfirmationDto
 import com.fairair.app.persistence.LocalStorage
 import com.fairair.app.state.BookingFlowState
 import kotlinx.coroutines.flow.MutableStateFlow

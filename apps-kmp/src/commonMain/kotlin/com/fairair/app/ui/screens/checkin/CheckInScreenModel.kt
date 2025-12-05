@@ -3,6 +3,13 @@ package com.fairair.app.ui.screens.checkin
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.fairair.app.api.*
+import com.fairair.contract.dto.BoardingPassDto
+import com.fairair.contract.dto.CheckInLookupRequestDto
+import com.fairair.contract.dto.CheckInLookupResponseDto
+import com.fairair.contract.dto.CheckInPassengerDto
+import com.fairair.contract.dto.CheckInProcessRequestDto
+import com.fairair.contract.dto.CheckInResultDto
+import com.fairair.contract.dto.SeatPreferenceDto
 import com.fairair.app.util.toDisplayMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

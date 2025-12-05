@@ -25,7 +25,8 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.app.api.FareDto
-import com.fairair.app.api.FlightDto
+import com.fairair.app.api.fares
+import com.fairair.contract.dto.FlightDto
 import com.fairair.app.navigation.AppScreen
 import com.fairair.app.ui.components.*
 import com.fairair.app.ui.screens.passengers.PassengerInfoScreen

@@ -1,7 +1,7 @@
 package com.fairair.app.ui.screens.results
 
-import com.fairair.app.api.FareFamilyDto
-import com.fairair.app.api.FlightDto
+import com.fairair.contract.dto.FareFamilyDto
+import com.fairair.contract.dto.FlightDto
 import com.fairair.contract.model.Currency
 import com.fairair.contract.model.Money
 

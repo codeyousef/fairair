@@ -26,7 +26,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.fairair.app.api.BookingConfirmationDto
+import com.fairair.contract.dto.BookingConfirmationDto
 import com.fairair.app.navigation.AppScreen
 import com.fairair.app.ui.theme.VelocityColors
 import com.fairair.app.ui.theme.VelocityTheme

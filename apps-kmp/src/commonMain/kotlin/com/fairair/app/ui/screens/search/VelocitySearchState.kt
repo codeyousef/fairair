@@ -1,7 +1,7 @@
 package com.fairair.app.ui.screens.search
 
-import com.fairair.app.api.LowFareDateDto
-import com.fairair.app.api.StationDto
+import com.fairair.contract.dto.LowFareDateDto
+import com.fairair.contract.dto.StationDto
 import com.fairair.app.ui.components.velocity.DestinationTheme
 import kotlinx.datetime.LocalDate
 

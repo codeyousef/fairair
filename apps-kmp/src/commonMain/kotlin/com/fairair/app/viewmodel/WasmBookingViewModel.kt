@@ -1,6 +1,10 @@
 package com.fairair.app.viewmodel
 
 import com.fairair.app.api.*
+import com.fairair.contract.dto.BookingRequestDto
+import com.fairair.contract.dto.FlightDto
+import com.fairair.contract.dto.PassengerDto
+import com.fairair.contract.dto.PaymentDto
 import com.fairair.app.state.BookingFlowState
 import com.fairair.app.state.PassengerInfo
 import com.fairair.app.state.SelectedAncillaries

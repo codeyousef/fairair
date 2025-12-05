@@ -30,6 +30,9 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.app.api.*
+import com.fairair.contract.dto.CancelBookingResponseDto
+import com.fairair.contract.dto.ManageBookingResponseDto
+import com.fairair.contract.dto.ModifyBookingResponseDto
 import com.fairair.app.ui.components.velocity.GlassCard
 import com.fairair.app.ui.theme.VelocityColors
 import com.fairair.app.ui.screens.checkin.CheckInScreen

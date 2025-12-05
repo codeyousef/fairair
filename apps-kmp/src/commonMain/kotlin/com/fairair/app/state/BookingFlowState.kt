@@ -1,6 +1,11 @@
 package com.fairair.app.state
 
 import com.fairair.app.api.*
+import com.fairair.contract.dto.BookingConfirmationDto
+import com.fairair.contract.dto.FlightDto
+import com.fairair.contract.dto.FlightSearchResponseDto
+import com.fairair.contract.dto.PassengerCountsDto
+import com.fairair.contract.dto.StationDto
 
 /**
  * Centralized state management for the booking flow.
