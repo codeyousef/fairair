@@ -1,6 +1,7 @@
 package com.fairair.app
 
 import com.fairair.app.api.*
+import com.fairair.contract.dto.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*

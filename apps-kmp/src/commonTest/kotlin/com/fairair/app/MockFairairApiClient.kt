@@ -1,7 +1,7 @@
 package com.fairair.app
 
 import com.fairair.app.api.*
-import com.fairair.contract.dto.LoginResponseDto
+import com.fairair.contract.dto.*
 import kotlinx.datetime.Clock
 
 /**

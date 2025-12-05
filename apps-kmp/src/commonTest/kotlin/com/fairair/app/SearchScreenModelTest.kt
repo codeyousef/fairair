@@ -1,6 +1,7 @@
 package com.fairair.app
 
 import com.fairair.app.api.*
+import com.fairair.contract.dto.*
 import com.fairair.app.state.BookingFlowState
 import com.fairair.app.state.SearchCriteria
 import kotlinx.coroutines.Dispatchers
