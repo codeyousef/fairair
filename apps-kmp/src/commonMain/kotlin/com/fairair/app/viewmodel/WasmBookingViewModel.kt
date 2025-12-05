@@ -9,6 +9,7 @@ import com.fairair.app.state.BookingFlowState
 import com.fairair.app.state.PassengerInfo
 import com.fairair.app.state.SelectedAncillaries
 import com.fairair.app.state.SelectedFlight
+import com.fairair.app.ui.components.velocity.DestinationTheme
 import com.fairair.app.ui.screens.results.FareFamily
 import com.fairair.app.ui.screens.results.VelocityFlightCard
 import com.fairair.app.ui.screens.results.VelocityResultsState
@@ -177,6 +178,7 @@ class WasmBookingViewModel(
                 originCode = searchCriteria.origin.code,
                 destinationCode = searchCriteria.destination.code,
                 departureDate = searchCriteria.departureDate,
+                destinationTheme = DestinationTheme.forDestination(searchCriteria.destination.code),
                 error = null
             )
         }
@@ -834,6 +836,7 @@ data class WasmResultsUiState(
     val originCode: String = "",
     val destinationCode: String = "",
     val departureDate: String = "",
+    val destinationTheme: DestinationTheme? = null,
     val expandedFlightId: String? = null,
     val selectedFlightNumber: String? = null,
     val selectedFareFamily: String? = null,

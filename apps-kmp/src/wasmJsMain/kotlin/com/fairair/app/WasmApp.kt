@@ -519,7 +519,7 @@ private fun WasmResultsScreenContainer(
         error = state.error
     )
 
-    VelocityThemeWithBackground(isRtl = isRtl) {
+    VelocityThemeWithBackground(isRtl = isRtl, destinationTheme = state.destinationTheme) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
