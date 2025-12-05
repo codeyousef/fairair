@@ -4,6 +4,11 @@ import com.fairair.contract.api.ApiRoutes
 import com.fairair.contract.dto.LoginRequestDto
 import com.fairair.contract.dto.LoginResponseDto
 import com.fairair.contract.dto.UserInfoDto
+import com.fairair.contract.model.MembershipPlan
+import com.fairair.contract.model.Subscription
+import com.fairair.contract.model.SubscribeRequest
+import com.fairair.contract.model.SubscriptionCancellation
+import com.fairair.contract.model.MembershipUsage
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
@@ -293,9 +298,9 @@ class FairairApiClient(
 
     /**
      * Gets all available membership plans.
-     * @return List of MembershipPlanDto
+     * @return List of MembershipPlan from shared contract
      */
-    suspend fun getMembershipPlans(): ApiResult<List<MembershipPlanDto>> {
+    suspend fun getMembershipPlans(): ApiResult<List<MembershipPlan>> {
         return safeApiCall {
             httpClient.get("$baseUrl${ApiRoutes.Membership.PLANS}").body()
         }
@@ -304,9 +309,9 @@ class FairairApiClient(
     /**
      * Gets user's active subscription.
      * @param authToken JWT access token
-     * @return SubscriptionDto or null if no active subscription
+     * @return Subscription or null if no active subscription
      */
-    suspend fun getSubscription(authToken: String): ApiResult<SubscriptionDto?> {
+    suspend fun getSubscription(authToken: String): ApiResult<Subscription?> {
         return safeApiCall {
             httpClient.get("$baseUrl${ApiRoutes.Membership.STATUS}") {
                 header(HttpHeaders.Authorization, "Bearer $authToken")
@@ -318,9 +323,9 @@ class FairairApiClient(
      * Subscribes to a membership plan.
      * @param request Subscription details with payment info
      * @param authToken JWT access token
-     * @return SubscriptionDto with new subscription details
+     * @return Subscription with new subscription details
      */
-    suspend fun subscribe(request: SubscribeRequestDto, authToken: String): ApiResult<SubscriptionDto> {
+    suspend fun subscribe(request: SubscribeRequest, authToken: String): ApiResult<Subscription> {
         return safeApiCall {
             httpClient.post("$baseUrl${ApiRoutes.Membership.SUBSCRIBE}") {
                 contentType(ContentType.Application.Json)
@@ -333,9 +338,9 @@ class FairairApiClient(
     /**
      * Cancels current subscription.
      * @param authToken JWT access token
-     * @return Cancellation confirmation
+     * @return SubscriptionCancellation confirmation
      */
-    suspend fun cancelSubscription(authToken: String): ApiResult<CancelSubscriptionResponseDto> {
+    suspend fun cancelSubscription(authToken: String): ApiResult<SubscriptionCancellation> {
         return safeApiCall {
             httpClient.post("$baseUrl${ApiRoutes.Membership.CANCEL}") {
                 header(HttpHeaders.Authorization, "Bearer $authToken")
@@ -346,9 +351,9 @@ class FairairApiClient(
     /**
      * Gets subscription usage statistics.
      * @param authToken JWT access token
-     * @return UsageStatsDto with usage details
+     * @return MembershipUsage with usage details
      */
-    suspend fun getUsageStats(authToken: String): ApiResult<UsageStatsDto> {
+    suspend fun getUsageStats(authToken: String): ApiResult<MembershipUsage> {
         return safeApiCall {
             httpClient.get("$baseUrl${ApiRoutes.Membership.USAGE}") {
                 header(HttpHeaders.Authorization, "Bearer $authToken")
@@ -1040,79 +1045,6 @@ data class CancelBookingResponseDto(
     val message: String,
     val refundAmountFormatted: String? = null,
     val refundMethod: String? = null
-)
-
-// ============================================================================
-// Membership DTOs
-// ============================================================================
-
-@Serializable
-data class MembershipPlanDto(
-    val id: String,
-    val name: String,
-    val tier: String,
-    val monthlyPriceMinor: Long,
-    val monthlyPriceFormatted: String,
-    val annualPriceMinor: Long,
-    val annualPriceFormatted: String,
-    val currency: String,
-    val benefits: List<String>,
-    val flightsPerMonth: Int,
-    val guestPasses: Int,
-    val priorityBoarding: Boolean,
-    val loungeAccess: Boolean,
-    val flexibleChanges: Boolean,
-    val baggageAllowance: String
-)
-
-@Serializable
-data class SubscriptionDto(
-    val id: String,
-    val planId: String,
-    val planName: String,
-    val status: String,
-    val billingCycle: String,
-    val currentPeriodStart: String,
-    val currentPeriodEnd: String,
-    val flightsUsed: Int,
-    val flightsRemaining: Int,
-    val guestPassesUsed: Int,
-    val guestPassesRemaining: Int,
-    val autoRenew: Boolean
-)
-
-@Serializable
-data class SubscribeRequestDto(
-    val planId: String,
-    val billingCycle: String,
-    val paymentMethodId: String? = null
-)
-
-@Serializable
-data class CancelSubscriptionResponseDto(
-    val success: Boolean,
-    val message: String,
-    val effectiveDate: String
-)
-
-@Serializable
-data class UsageStatsDto(
-    val subscriptionId: String,
-    val currentPeriod: String,
-    val flightsUsed: Int,
-    val flightsLimit: Int,
-    val guestPassesUsed: Int,
-    val guestPassesLimit: Int,
-    val savingsThisPeriodFormatted: String,
-    val recentFlights: List<UsageFlightDto>
-)
-
-@Serializable
-data class UsageFlightDto(
-    val flightNumber: String,
-    val route: String,
-    val date: String,
-    val savedAmountFormatted: String
 )
 
 // ============================================================================

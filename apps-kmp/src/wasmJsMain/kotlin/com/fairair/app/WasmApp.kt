@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.fairair.app.api.FairairApiClient
 import kotlinx.browser.window
 import com.fairair.app.api.FlightDto
@@ -3760,9 +3761,9 @@ private fun WasmMembershipScreen(
     val scope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var plans by remember { mutableStateOf<List<com.fairair.app.api.MembershipPlanDto>>(emptyList()) }
-    var subscription by remember { mutableStateOf<com.fairair.app.api.SubscriptionDto?>(null) }
-    var selectedPlan by remember { mutableStateOf<com.fairair.app.api.MembershipPlanDto?>(null) }
+    var plans by remember { mutableStateOf<List<com.fairair.contract.model.MembershipPlan>>(emptyList()) }
+    var subscription by remember { mutableStateOf<com.fairair.contract.model.Subscription?>(null) }
+    var selectedPlan by remember { mutableStateOf<com.fairair.contract.model.MembershipPlan?>(null) }
 
     LaunchedEffect(Unit) {
         when (val result = apiClient.getMembershipPlans()) {
@@ -3825,9 +3826,9 @@ private fun WasmMembershipScreen(
                             GlassCard(modifier = Modifier.fillMaxWidth()) {
                                 Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(selectedPlan!!.name, style = MaterialTheme.typography.headlineMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
-                                    Text("${selectedPlan!!.flightsPerMonth} flights per month", style = MaterialTheme.typography.bodyLarge, color = VelocityColors.TextMuted)
+                                    Text("${selectedPlan!!.tripsPerMonth} trips per month", style = MaterialTheme.typography.bodyLarge, color = VelocityColors.TextMuted)
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Text(selectedPlan!!.monthlyPriceFormatted, style = MaterialTheme.typography.displaySmall, color = VelocityColors.Accent, fontWeight = FontWeight.Bold)
+                                    Text(selectedPlan!!.monthlyPrice.formatDisplay(), style = MaterialTheme.typography.displaySmall, color = VelocityColors.Accent, fontWeight = FontWeight.Bold)
                                     Text("/month", style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMuted)
                                 }
                             }
@@ -3837,9 +3838,12 @@ private fun WasmMembershipScreen(
                         
                         items(selectedPlan!!.benefits) { benefit ->
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Check, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(24.dp))
+                                Text(benefit.icon, fontSize = 20.sp, modifier = Modifier.size(24.dp))
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text(benefit, style = MaterialTheme.typography.bodyLarge, color = VelocityColors.TextMain)
+                                Column {
+                                    Text(benefit.title, style = MaterialTheme.typography.bodyLarge, color = VelocityColors.TextMain, fontWeight = FontWeight.Medium)
+                                    Text(benefit.description, style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMuted)
+                                }
                             }
                         }
                         
@@ -3883,30 +3887,21 @@ private fun WasmMembershipScreen(
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                             Column {
                                                 Text("Your Subscription", style = MaterialTheme.typography.labelMedium, color = VelocityColors.Accent)
-                                                Text(subscription!!.planName, style = MaterialTheme.typography.titleLarge, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
+                                                Text(subscription!!.plan.name, style = MaterialTheme.typography.titleLarge, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
                                             }
                                             Surface(color = Color(0xFF4CAF50).copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
-                                                Text("Active", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                                Text(subscription!!.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                                             }
                                         }
                                         Spacer(modifier = Modifier.height(16.dp))
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Text("${subscription!!.flightsUsed} / ${subscription!!.flightsRemaining + subscription!!.flightsUsed}", style = MaterialTheme.typography.titleMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
-                                                Text("Flights", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
-                                            }
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Text("${subscription!!.guestPassesUsed} / ${subscription!!.guestPassesRemaining + subscription!!.guestPassesUsed}", style = MaterialTheme.typography.titleMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
-                                                Text("Guest Passes", style = MaterialTheme.typography.labelSmall, color = VelocityColors.TextMuted)
-                                            }
-                                        }
+                                        Text("Next billing: ${subscription!!.nextBillingDate}", style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMuted)
                                     }
                                 }
                             }
                         }
                         
                         items(plans) { plan ->
-                            val isCurrent = subscription?.planId == plan.id
+                            val isCurrent = subscription?.plan?.id == plan.id
                             GlassCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -3923,18 +3918,18 @@ private fun WasmMembershipScreen(
                                                 Spacer(modifier = Modifier.height(8.dp))
                                             }
                                             Text(plan.name, style = MaterialTheme.typography.titleLarge, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
-                                            Text("${plan.flightsPerMonth} flights/month", style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMuted)
+                                            Text("${plan.tripsPerMonth} trips/month", style = MaterialTheme.typography.bodyMedium, color = VelocityColors.TextMuted)
                                         }
                                         Column(horizontalAlignment = Alignment.End) {
-                                            Text(plan.monthlyPriceFormatted, style = MaterialTheme.typography.headlineSmall, color = VelocityColors.Accent, fontWeight = FontWeight.Bold)
+                                            Text(plan.monthlyPrice.formatDisplay(), style = MaterialTheme.typography.headlineSmall, color = VelocityColors.Accent, fontWeight = FontWeight.Bold)
                                             Text("/month", style = MaterialTheme.typography.bodySmall, color = VelocityColors.TextMuted)
                                         }
                                     }
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        if (plan.priorityBoarding) BenefitChip("Priority")
-                                        if (plan.loungeAccess) BenefitChip("Lounge")
-                                        if (plan.flexibleChanges) BenefitChip("Flexible")
+                                        plan.benefits.take(3).forEach { benefit ->
+                                            BenefitChip(benefit.title)
+                                        }
                                     }
                                 }
                             }

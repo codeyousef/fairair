@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import com.fairair.app.api.*
 import com.fairair.app.persistence.LocalStorage
 import com.fairair.app.util.toDisplayMessage
+import com.fairair.contract.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -97,7 +98,7 @@ class MembershipScreenModel(
     /**
      * Selects a plan for viewing details.
      */
-    fun selectPlan(plan: MembershipPlanDto) {
+    fun selectPlan(plan: MembershipPlan) {
         _uiState.update { 
             it.copy(
                 selectedPlan = plan,
@@ -141,10 +142,24 @@ class MembershipScreenModel(
         screenModelScope.launch {
             _uiState.update { it.copy(isProcessing = true, error = null) }
 
-            val request = SubscribeRequestDto(
+            // TODO: In a real app, collect actual payment details from user
+            val request = SubscribeRequest(
                 planId = plan.id,
-                billingCycle = state.selectedBillingCycle.name.lowercase(),
-                paymentMethodId = paymentMethodId
+                paymentMethod = PaymentMethodRequest(
+                    cardNumber = "4111111111111111", // Test card
+                    expiryMonth = 12,
+                    expiryYear = 2025,
+                    cvv = "123",
+                    cardholderName = "Test User"
+                ),
+                billingAddress = BillingAddress(
+                    line1 = "123 Main St",
+                    line2 = null,
+                    city = "Riyadh",
+                    state = null,
+                    postalCode = "12345",
+                    country = "SA"
+                )
             )
 
             when (val result = apiClient.subscribe(request, authToken)) {
@@ -217,13 +232,17 @@ class MembershipScreenModel(
 
     /**
      * Toggles auto-renewal setting.
+     * In a real app, this would update subscription settings via API.
      */
     fun toggleAutoRenewal(enabled: Boolean) {
-        // This would update subscription settings via API
+        // TODO: Would call API to update auto-renewal setting
+        // For now, just update local state (subscription status indicates renewal)
         _uiState.update { state ->
             state.currentSubscription?.let { sub ->
                 state.copy(
-                    currentSubscription = sub.copy(autoRenew = enabled)
+                    currentSubscription = sub.copy(
+                        status = if (enabled) SubscriptionStatus.ACTIVE else SubscriptionStatus.CANCELLING
+                    )
                 )
             } ?: state
         }
@@ -316,14 +335,14 @@ data class MembershipUiState(
     val isLoggedIn: Boolean = false,
     
     // Plans
-    val plans: List<MembershipPlanDto> = emptyList(),
-    val selectedPlan: MembershipPlanDto? = null,
+    val plans: List<MembershipPlan> = emptyList(),
+    val selectedPlan: MembershipPlan? = null,
     val selectedBillingCycle: BillingCycle = BillingCycle.MONTHLY,
     val pendingBillingCycle: BillingCycle? = null,
     
     // Current subscription
-    val currentSubscription: SubscriptionDto? = null,
-    val usageStats: UsageStatsDto? = null,
+    val currentSubscription: Subscription? = null,
+    val usageStats: MembershipUsage? = null,
     
     // Dialogs
     val showCancelConfirmation: Boolean = false,
@@ -332,8 +351,8 @@ data class MembershipUiState(
     val error: String? = null
 ) {
     val hasActiveSubscription: Boolean
-        get() = currentSubscription?.status?.uppercase() == "ACTIVE"
+        get() = currentSubscription?.status?.name == "ACTIVE"
     
-    val tierPlans: Map<String, List<MembershipPlanDto>>
-        get() = plans.groupBy { it.tier }
+    val tierPlans: Map<String, List<MembershipPlan>>
+        get() = plans.groupBy { it.name.split(" ").first() }
 }

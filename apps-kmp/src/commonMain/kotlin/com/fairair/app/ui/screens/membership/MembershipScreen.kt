@@ -34,6 +34,7 @@ import com.fairair.app.api.*
 import com.fairair.app.ui.components.velocity.GlassCard
 import com.fairair.app.ui.theme.VelocityColors
 import com.fairair.app.ui.theme.VelocityTheme
+import com.fairair.contract.model.*
 
 /**
  * Screen for membership plans and subscription management.
@@ -140,7 +141,7 @@ class MembershipScreen : Screen {
                                 ManageSubscriptionView(
                                     subscription = uiState.currentSubscription!!,
                                     usageStats = uiState.usageStats,
-                                    plan = uiState.plans.find { it.id == uiState.currentSubscription?.planId },
+                                    plan = uiState.currentSubscription?.plan,
                                     isProcessing = uiState.isProcessing,
                                     onToggleAutoRenewal = screenModel::toggleAutoRenewal,
                                     onCancel = screenModel::showCancelConfirmation
@@ -242,10 +243,10 @@ private fun ErrorView(
 
 @Composable
 private fun PlansView(
-    plans: List<MembershipPlanDto>,
-    currentSubscription: SubscriptionDto?,
-    usageStats: UsageStatsDto?,
-    onSelectPlan: (MembershipPlanDto) -> Unit,
+    plans: List<MembershipPlan>,
+    currentSubscription: Subscription?,
+    usageStats: MembershipUsage?,
+    onSelectPlan: (MembershipPlan) -> Unit,
     onViewSubscription: () -> Unit
 ) {
     LazyColumn(
@@ -299,7 +300,7 @@ private fun PlansView(
         items(plans) { plan ->
             PlanCard(
                 plan = plan,
-                isCurrentPlan = currentSubscription?.planId == plan.id,
+                isCurrentPlan = currentSubscription?.plan?.id == plan.id,
                 onClick = { onSelectPlan(plan) }
             )
         }
@@ -310,8 +311,8 @@ private fun PlansView(
 
 @Composable
 private fun CurrentSubscriptionBanner(
-    subscription: SubscriptionDto,
-    usageStats: UsageStatsDto?,
+    subscription: Subscription,
+    usageStats: MembershipUsage?,
     onClick: () -> Unit
 ) {
     GlassCard(
@@ -332,7 +333,7 @@ private fun CurrentSubscriptionBanner(
                         color = VelocityColors.Accent
                     )
                     Text(
-                        text = subscription.planName,
+                        text = subscription.plan.name,
                         style = MaterialTheme.typography.titleLarge,
                         color = VelocityColors.TextMain,
                         fontWeight = FontWeight.Bold
@@ -354,14 +355,14 @@ private fun CurrentSubscriptionBanner(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     UsageItem(
-                        label = "Flights",
-                        used = usageStats.flightsUsed,
-                        total = usageStats.flightsLimit
+                        label = "Trips",
+                        used = usageStats.tripsUsed,
+                        total = usageStats.tripsAllowed
                     )
                     UsageItem(
-                        label = "Guest Passes",
-                        used = usageStats.guestPassesUsed,
-                        total = usageStats.guestPassesLimit
+                        label = "Remaining",
+                        used = usageStats.tripsRemaining,
+                        total = usageStats.tripsAllowed
                     )
                 }
             }
@@ -392,7 +393,7 @@ private fun UsageItem(
 
 @Composable
 private fun PlanCard(
-    plan: MembershipPlanDto,
+    plan: MembershipPlan,
     isCurrentPlan: Boolean,
     onClick: () -> Unit
 ) {
@@ -439,7 +440,7 @@ private fun PlanCard(
                     )
                     
                     Text(
-                        text = "${plan.flightsPerMonth} flights/month",
+                        text = "${plan.tripsPerMonth} trips/month",
                         style = MaterialTheme.typography.bodyMedium,
                         color = VelocityColors.TextMuted
                     )
@@ -447,7 +448,7 @@ private fun PlanCard(
                 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = plan.monthlyPriceFormatted,
+                        text = plan.monthlyPrice.formatDisplay(),
                         style = MaterialTheme.typography.headlineSmall,
                         color = VelocityColors.Accent,
                         fontWeight = FontWeight.Bold
@@ -462,21 +463,12 @@ private fun PlanCard(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Key benefits
+            // Key benefits from plan
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (plan.priorityBoarding) {
-                    item { BenefitChip(Icons.Default.Send, "Priority") }
-                }
-                if (plan.loungeAccess) {
-                    item { BenefitChip(Icons.Default.Home, "Lounge") }
-                }
-                if (plan.flexibleChanges) {
-                    item { BenefitChip(Icons.Default.Refresh, "Flexible") }
-                }
-                if (plan.guestPasses > 0) {
-                    item { BenefitChip(Icons.Default.Person, "${plan.guestPasses} Guests") }
+                items(plan.benefits.take(4)) { benefit ->
+                    BenefitChip(benefit.icon, benefit.title)
                 }
             }
         }
@@ -485,7 +477,7 @@ private fun PlanCard(
 
 @Composable
 private fun BenefitChip(
-    icon: ImageVector,
+    icon: String,
     text: String
 ) {
     Surface(
@@ -496,11 +488,9 @@ private fun BenefitChip(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = VelocityColors.Accent,
-                modifier = Modifier.size(16.dp)
+            Text(
+                text = icon,
+                fontSize = 14.sp
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
@@ -514,7 +504,7 @@ private fun BenefitChip(
 
 @Composable
 private fun PlanDetailsView(
-    plan: MembershipPlanDto,
+    plan: MembershipPlan,
     hasActiveSubscription: Boolean,
     onSubscribe: (BillingCycle) -> Unit
 ) {
@@ -541,7 +531,7 @@ private fun PlanDetailsView(
                     )
                     
                     Text(
-                        text = "${plan.flightsPerMonth} flights per month",
+                        text = "${plan.tripsPerMonth} trips per month",
                         style = MaterialTheme.typography.bodyLarge,
                         color = VelocityColors.TextMuted
                     )
@@ -556,17 +546,21 @@ private fun PlanDetailsView(
                             .background(VelocityColors.BackgroundDeep)
                             .padding(4.dp)
                     ) {
+                        val monthlyFormatted = plan.monthlyPrice.formatDisplay()
+                        val annualAmount = (plan.monthlyPrice.amountMinor * 10) // 2 months free
+                        val annualFormatted = Money(annualAmount, plan.monthlyPrice.currency).formatDisplay()
+                        
                         BillingCycleTab(
                             label = "Monthly",
-                            price = plan.monthlyPriceFormatted,
+                            price = monthlyFormatted,
                             selected = selectedCycle == BillingCycle.MONTHLY,
                             onClick = { selectedCycle = BillingCycle.MONTHLY },
                             modifier = Modifier.weight(1f)
                         )
                         BillingCycleTab(
                             label = "Annual",
-                            price = plan.annualPriceFormatted,
-                            savings = "Save 20%",
+                            price = annualFormatted,
+                            savings = "Save 2 months",
                             selected = selectedCycle == BillingCycle.ANNUAL,
                             onClick = { selectedCycle = BillingCycle.ANNUAL },
                             modifier = Modifier.weight(1f)
@@ -590,37 +584,33 @@ private fun PlanDetailsView(
             BenefitRow(benefit = benefit)
         }
         
-        // Additional features
+        // Restrictions info
         item {
             GlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    DetailRow(Icons.Default.List, "Baggage", plan.baggageAllowance)
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = VelocityColors.GlassBorder
-                    )
                     DetailRow(
-                        Icons.Default.Person,
-                        "Guest Passes",
-                        "${plan.guestPasses} per month"
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = VelocityColors.GlassBorder
-                    )
-                    DetailRow(
-                        Icons.Default.Send,
-                        "Priority Boarding",
-                        if (plan.priorityBoarding) "Included" else "Not included"
+                        Icons.Default.List, 
+                        "Routes", 
+                        if (plan.restrictions.domesticOnly) "Domestic only" else "All routes"
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 12.dp),
                         color = VelocityColors.GlassBorder
                     )
                     DetailRow(
-                        Icons.Default.Home,
-                        "Lounge Access",
-                        if (plan.loungeAccess) "Included" else "Not included"
+                        Icons.Default.DateRange,
+                        "Booking Window",
+                        if (plan.restrictions.minimumBookingDays == 0) "Same day booking" 
+                        else "${plan.restrictions.minimumBookingDays} days advance"
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = VelocityColors.GlassBorder
+                    )
+                    DetailRow(
+                        Icons.Default.Lock,
+                        "Commitment",
+                        "${plan.restrictions.commitmentMonths} months"
                     )
                 }
             }
@@ -692,25 +682,32 @@ private fun BillingCycleTab(
 }
 
 @Composable
-private fun BenefitRow(benefit: String) {
+private fun BenefitRow(benefit: MembershipBenefit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = Icons.Default.Check,
-            contentDescription = null,
-            tint = Color(0xFF4CAF50),
+        Text(
+            text = benefit.icon,
+            fontSize = 20.sp,
             modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = benefit,
-            style = MaterialTheme.typography.bodyLarge,
-            color = VelocityColors.TextMain
-        )
+        Column {
+            Text(
+                text = benefit.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = VelocityColors.TextMain,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = benefit.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = VelocityColors.TextMuted
+            )
+        }
     }
 }
 
@@ -808,16 +805,18 @@ private fun LoginRequiredView(
 
 @Composable
 private fun PaymentView(
-    plan: MembershipPlanDto,
+    plan: MembershipPlan,
     billingCycle: BillingCycle,
     isProcessing: Boolean,
     error: String?,
     onConfirm: () -> Unit
 ) {
     val price = if (billingCycle == BillingCycle.MONTHLY) {
-        plan.monthlyPriceFormatted
+        plan.monthlyPrice.formatDisplay()
     } else {
-        plan.annualPriceFormatted
+        // Annual price is monthly * 12 with 2 months free (10 months)
+        val annualAmount = plan.monthlyPrice.amountMinor * 10
+        Money(annualAmount, plan.monthlyPrice.currency).formatDisplay()
     }
     
     Column(
@@ -955,7 +954,7 @@ private fun PaymentView(
 
 @Composable
 private fun SubscriptionCompleteView(
-    subscription: SubscriptionDto,
+    subscription: Subscription,
     onDone: () -> Unit
 ) {
     Column(
@@ -975,7 +974,7 @@ private fun SubscriptionCompleteView(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Welcome to ${subscription.planName}!",
+            text = "Welcome to ${subscription.plan.name}!",
             style = MaterialTheme.typography.headlineMedium,
             color = VelocityColors.TextMain,
             fontWeight = FontWeight.Bold,
@@ -1007,9 +1006,9 @@ private fun SubscriptionCompleteView(
 
 @Composable
 private fun ManageSubscriptionView(
-    subscription: SubscriptionDto,
-    usageStats: UsageStatsDto?,
-    plan: MembershipPlanDto?,
+    subscription: Subscription,
+    usageStats: MembershipUsage?,
+    plan: MembershipPlan?,
     isProcessing: Boolean,
     onToggleAutoRenewal: (Boolean) -> Unit,
     onCancel: () -> Unit
@@ -1031,25 +1030,33 @@ private fun ManageSubscriptionView(
                     ) {
                         Column {
                             Text(
-                                text = subscription.planName,
+                                text = subscription.plan.name,
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = VelocityColors.TextMain,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = subscription.billingCycle.replaceFirstChar { it.uppercase() } + " billing",
+                                text = "Monthly billing",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = VelocityColors.TextMuted
                             )
                         }
                         
                         Surface(
-                            color = Color(0xFF4CAF50).copy(alpha = 0.2f),
+                            color = when (subscription.status) {
+                                SubscriptionStatus.ACTIVE -> Color(0xFF4CAF50).copy(alpha = 0.2f)
+                                SubscriptionStatus.CANCELLING -> Color(0xFFFFA500).copy(alpha = 0.2f)
+                                else -> Color(0xFF808080).copy(alpha = 0.2f)
+                            },
                             shape = RoundedCornerShape(20.dp)
                         ) {
                             Text(
-                                text = "Active",
-                                color = Color(0xFF4CAF50),
+                                text = subscription.status.name.lowercase().replaceFirstChar { it.uppercase() },
+                                color = when (subscription.status) {
+                                    SubscriptionStatus.ACTIVE -> Color(0xFF4CAF50)
+                                    SubscriptionStatus.CANCELLING -> Color(0xFFFFA500)
+                                    else -> Color(0xFF808080)
+                                },
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -1063,7 +1070,7 @@ private fun ManageSubscriptionView(
                     )
                     
                     Text(
-                        text = "Next billing: ${subscription.currentPeriodEnd}",
+                        text = "Next billing: ${subscription.nextBillingDate}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = VelocityColors.TextMuted
                     )
@@ -1075,7 +1082,7 @@ private fun ManageSubscriptionView(
         if (usageStats != null) {
             item {
                 Text(
-                    text = "This Month's Usage",
+                    text = "This Period's Usage",
                     style = MaterialTheme.typography.titleMedium,
                     color = VelocityColors.TextMain,
                     fontWeight = FontWeight.SemiBold
@@ -1088,15 +1095,15 @@ private fun ManageSubscriptionView(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     UsageCard(
-                        label = "Flights",
-                        used = usageStats.flightsUsed,
-                        total = usageStats.flightsLimit,
+                        label = "Trips Used",
+                        used = usageStats.tripsUsed,
+                        total = usageStats.tripsAllowed,
                         modifier = Modifier.weight(1f)
                     )
                     UsageCard(
-                        label = "Guest Passes",
-                        used = usageStats.guestPassesUsed,
-                        total = usageStats.guestPassesLimit,
+                        label = "Remaining",
+                        used = usageStats.tripsRemaining,
+                        total = usageStats.tripsAllowed,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -1116,7 +1123,7 @@ private fun ManageSubscriptionView(
                                 color = VelocityColors.TextMuted
                             )
                             Text(
-                                text = usageStats.savingsThisPeriodFormatted,
+                                text = usageStats.savingsThisPeriod.formatDisplay(),
                                 style = MaterialTheme.typography.titleLarge,
                                 color = Color(0xFF4CAF50),
                                 fontWeight = FontWeight.Bold
@@ -1166,7 +1173,7 @@ private fun ManageSubscriptionView(
                         )
                     }
                     Switch(
-                        checked = subscription.autoRenew,
+                        checked = subscription.status == SubscriptionStatus.ACTIVE,
                         onCheckedChange = onToggleAutoRenewal,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = VelocityColors.Accent,
