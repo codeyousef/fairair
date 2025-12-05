@@ -67,6 +67,9 @@ import kotlinx.coroutines.launch
 import org.koin.compose.KoinContext
 import org.koin.compose.koinInject
 
+// Max width for content on desktop - keeps screens readable on wide monitors
+private val MaxContentWidth = 900.dp
+
 /**
  * Wasm-specific application entry point that bypasses Voyager Navigator.
  *
@@ -210,16 +213,28 @@ private fun WasmAppContent() {
     // Wrap in localization provider
     LocalizationProvider(localizationState) {
         VelocityTheme(isRtl = localizationState.isRtl) {
-            when (currentScreen) {
-                WasmScreen.LANDING -> {
-                    LandingScreen(
-                            onFlyNowClick = { currentScreen = WasmScreen.SEARCH },
-                            onLoginClick = { currentScreen = WasmScreen.LOGIN },
-                            onLogoutClick = {
-                                localStorage.clearAuth()
-                                currentUser = null
-                                authToken = null
-                            },
+            // Desktop-aware wrapper - constrains content width on wide screens
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = MaxContentWidth)
+                        .fillMaxSize()
+                ) {
+                    when (currentScreen) {
+                        WasmScreen.LANDING -> {
+                            // Landing has its own max width handling
+                            Box(modifier = Modifier.widthIn(max = 1200.dp)) {
+                                LandingScreen(
+                                    onFlyNowClick = { currentScreen = WasmScreen.SEARCH },
+                                    onLoginClick = { currentScreen = WasmScreen.LOGIN },
+                                    onLogoutClick = {
+                                        localStorage.clearAuth()
+                                        currentUser = null
+                                        authToken = null
+                                    },
                             onMyBookingsClick = { currentScreen = WasmScreen.SAVED_BOOKINGS },
                             onSettingsClick = {
                                 previousScreen = WasmScreen.LANDING
@@ -262,8 +277,9 @@ private fun WasmAppContent() {
                             userName = currentUser?.firstName,
                             isRtl = localizationState.isRtl
                         )
-                }
-                WasmScreen.LOGIN -> {
+                            }
+                        }
+                        WasmScreen.LOGIN -> {
                     WasmLoginScreen(
                         onLogin = { user, token -> 
                             // Persist auth state to localStorage (only if values are present)
@@ -407,6 +423,8 @@ private fun WasmAppContent() {
                             )
                         }
                     )
+                        }
+                    }
                 }
             }
         }
