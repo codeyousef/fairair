@@ -53,7 +53,6 @@ fun TripTypeSelector(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Only show One-way and Round trip options (not Multi-city for now)
         TripTypePill(
             tripLabel = strings.velocityOneWay,
             isSelected = selectedType == TripType.ONE_WAY,
@@ -63,6 +62,11 @@ fun TripTypeSelector(
             tripLabel = strings.velocityRoundTrip,
             isSelected = selectedType == TripType.ROUND_TRIP,
             onClick = { onTypeSelected(TripType.ROUND_TRIP) }
+        )
+        TripTypePill(
+            tripLabel = strings.velocityMultiCity,
+            isSelected = selectedType == TripType.MULTI_CITY,
+            onClick = { onTypeSelected(TripType.MULTI_CITY) }
         )
     }
 }
