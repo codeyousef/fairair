@@ -213,11 +213,21 @@ private fun WasmAppContent() {
     // Wrap in localization provider
     LocalizationProvider(localizationState) {
         VelocityTheme(isRtl = localizationState.isRtl) {
-            // Desktop-aware wrapper - constrains content width on wide screens
+            // Full-width background container - gradient covers entire screen
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                VelocityColors.GradientStart,
+                                VelocityColors.GradientEnd
+                            )
+                        )
+                    ),
                 contentAlignment = Alignment.TopCenter
             ) {
+                // Desktop-aware wrapper - constrains content width on wide screens
                 Box(
                     modifier = Modifier
                         .widthIn(max = MaxContentWidth)
