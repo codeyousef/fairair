@@ -1,24 +1,32 @@
 # Build stage - need JDK for Kotlin/Wasm compilation
-FROM eclipse-temurin:17-jdk-alpine as builder
+# Use Debian-based image (not Alpine) for compatibility with Kotlin's Node.js download
+FROM eclipse-temurin:17-jdk as builder
+
+# Install Node.js and npm
+RUN apt-get update && apt-get install -y nodejs npm curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Install Node.js for webpack
-RUN apk add --no-cache nodejs npm
-
-# Copy gradle files first for better caching
-COPY gradlew .
-COPY gradle gradle
+# Copy build files first
 COPY build.gradle.kts .
 COPY settings.gradle.kts .
 COPY gradle.properties .
+COPY gradle/wrapper/gradle-wrapper.properties gradle/wrapper/
+COPY gradle/libs.versions.toml gradle/
+
+# Download gradle wrapper jar (gradle 8.11)
+RUN curl -fsSL -o gradle/wrapper/gradle-wrapper.jar \
+    "https://github.com/gradle/gradle/raw/v8.11.0/gradle/wrapper/gradle-wrapper.jar"
+
+# Copy gradlew and make executable
+COPY gradlew .
+RUN chmod +x gradlew
 
 # Copy source
 COPY shared-contract shared-contract
 COPY apps-kmp apps-kmp
-COPY build build
 
 # Build production distribution
-RUN chmod +x gradlew
 RUN ./gradlew :apps-kmp:wasmJsBrowserDistribution --no-daemon
 
 # Runtime stage - nginx to serve static files

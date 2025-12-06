@@ -113,13 +113,13 @@ setup_domains() {
     echo -e "${YELLOW}=== Setting up Custom Domains ===${NC}"
     
     echo "Mapping api.fairair.yousef.codes to backend..."
-    gcloud run domain-mappings create \
+    gcloud beta run domain-mappings create \
         --service $BACKEND_SERVICE \
         --domain api.fairair.yousef.codes \
         --region $REGION || echo "Domain mapping may already exist"
     
     echo "Mapping fairair.yousef.codes to frontend..."
-    gcloud run domain-mappings create \
+    gcloud beta run domain-mappings create \
         --service $FRONTEND_SERVICE \
         --domain fairair.yousef.codes \
         --region $REGION || echo "Domain mapping may already exist"
