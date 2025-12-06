@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+*.iml
+.vscode
+
+# Build outputs (we rebuild in Docker)
+build/
+*/build/
+**/build/
+
+# Gradle
+.gradle
+**/bin
+
+# Local configuration
+local.properties
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node modules (rebuilt in container)
+node_modules/
+**/node_modules/
+
+# Test outputs
+**/test-results/
+**/reports/
+
+# Documentation (not needed in container)
+docs/
+
+# Kotlin/JS store
+kotlin-js-store/

@@ -1,0 +1,45 @@
+# This file specifies files that are NOT uploaded to Google Cloud Build
+# Start fresh - don't inherit from .gitignore
+#!include:.gitignore
+
+# Git
+.git/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Build outputs (we rebuild in Docker)
+build/
+*/build/
+**/build/
+
+# Local configuration
+local.properties
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node modules (rebuilt in container)
+node_modules/
+**/node_modules/
+
+# Test outputs
+**/test-results/
+**/reports/
+
+# Documentation (not needed in container)
+docs/
+
+# Kotlin/JS store
+kotlin-js-store/
+
+# IMPORTANT: Do NOT ignore these - they are needed for the build
+# !gradle/wrapper/gradle-wrapper.jar
+# !gradlew
+# !gradlew.bat

@@ -30,8 +30,24 @@ import kotlin.wasm.unsafe.withScopedMemoryAllocator
 
 /**
  * Determines if we're running in debug mode for WasmJs.
+ * Debug mode is when running on localhost.
  */
-private val isDebugMode: Boolean = false
+private val isDebugMode: Boolean
+    get() = kotlinx.browser.window.location.hostname == "localhost"
+
+/**
+ * Determines the API base URL based on the current hostname.
+ * - localhost -> http://localhost:8080 (development)
+ * - fairair.yousef.codes -> https://api.fairair.yousef.codes (production)
+ */
+private fun getApiBaseUrl(): String {
+    val hostname = kotlinx.browser.window.location.hostname
+    return when {
+        hostname == "localhost" || hostname == "127.0.0.1" -> "http://localhost:8080"
+        hostname.contains("fairair.yousef.codes") -> "https://api.fairair.yousef.codes"
+        else -> "https://api.fairair.yousef.codes" // Default to production
+    }
+}
 
 /**
  * WasmJs-specific Koin module.
@@ -39,7 +55,7 @@ private val isDebugMode: Boolean = false
 private val wasmJsModule = module {
     single<PlatformConfig> {
         DefaultPlatformConfig(
-            apiBaseUrl = "http://localhost:8080",
+            apiBaseUrl = getApiBaseUrl(),
             isDebug = isDebugMode
         )
     }
