@@ -36,6 +36,10 @@ dependencies {
 
     // Google Cloud Vertex AI
     implementation(libs.google.cloud.vertexai)
+    
+    // Google Cloud Speech-to-Text and Text-to-Speech
+    implementation(libs.google.cloud.speech)
+    implementation(libs.google.cloud.texttospeech)
 
     // JWT
     implementation(libs.jjwt.api)

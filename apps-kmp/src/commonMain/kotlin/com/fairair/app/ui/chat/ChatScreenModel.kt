@@ -4,12 +4,18 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.fairair.app.api.ApiResult
 import com.fairair.app.api.FairairApiClient
+import com.fairair.app.voice.VoiceLanguages
+import com.fairair.app.voice.VoiceService
+import com.fairair.app.voice.VoiceState
+import com.fairair.app.voice.createVoiceService
 import com.fairair.contract.dto.ChatContextDto
 import com.fairair.contract.dto.ChatResponseDto
 import com.fairair.contract.dto.ChatUiType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -36,14 +42,18 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isLoading: Boolean = false,
     val isListening: Boolean = false,
+    val isSpeaking: Boolean = false,
     val inputText: String = "",
+    val interimText: String = "", // Real-time voice transcription preview
     val isExpanded: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val voiceError: String? = null,
+    val currentLocale: String = "en-US" // Current language for voice
 )
 
 /**
  * ScreenModel for the Faris AI chat functionality.
- * Manages conversation state and API calls.
+ * Manages conversation state, API calls, and voice interaction.
  */
 class ChatScreenModel(
     private val apiClient: FairairApiClient
@@ -52,12 +62,34 @@ class ChatScreenModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    // Voice service for STT and TTS
+    private val voiceService: VoiceService = createVoiceService()
+
     // Session ID persists across messages for conversation continuity
     @OptIn(ExperimentalUuidApi::class)
     private var sessionId: String = Uuid.random().toString()
 
     // Current context (PNR, screen, etc.)
     private var currentContext: ChatContextDto? = null
+    
+    init {
+        // Collect voice state changes
+        voiceService.state.onEach { voiceState ->
+            _uiState.value = _uiState.value.copy(
+                isListening = voiceState.isListening,
+                isSpeaking = voiceState.isSpeaking,
+                interimText = voiceState.interimText,
+                voiceError = voiceState.error
+            )
+        }.launchIn(screenModelScope)
+        
+        // Collect transcribed text and send as message
+        voiceService.transcribedText.onEach { text ->
+            if (text.isNotBlank()) {
+                sendMessage(text, _uiState.value.currentLocale)
+            }
+        }.launchIn(screenModelScope)
+    }
 
     /**
      * Updates the context for subsequent messages.
@@ -123,6 +155,7 @@ class ChatScreenModel(
             when (result) {
                 is ApiResult.Success -> {
                     val response = result.data
+                    println("ChatScreenModel: Received response - uiType=${response.uiType}, uiData length=${response.uiData?.length ?: 0}")
                     val aiMessage = ChatMessage(
                         id = Uuid.random().toString(),
                         text = response.text,
@@ -131,11 +164,17 @@ class ChatScreenModel(
                         uiData = response.uiData,
                         suggestions = response.suggestions
                     )
+                    println("ChatScreenModel: Created message - uiType=${aiMessage.uiType}")
 
                     _uiState.value = _uiState.value.copy(
                         messages = messagesWithoutLoading + aiMessage,
                         isLoading = false
                     )
+                    
+                    // Speak the AI response if voice synthesis is available
+                    if (voiceService.isSynthesisAvailable()) {
+                        voiceService.speak(response.text, _uiState.value.currentLocale)
+                    }
                 }
                 is ApiResult.Error -> {
                     val errorMessage = ChatMessage(
@@ -191,18 +230,71 @@ class ChatScreenModel(
     }
 
     /**
+     * Sets the current locale for voice interaction.
+     * @param locale Language code - "en-US" for English, "ar-SA" for Arabic
+     */
+    fun setLocale(locale: String) {
+        _uiState.value = _uiState.value.copy(currentLocale = locale)
+    }
+
+    /**
      * Sets the listening state (for voice input).
+     * This actually starts/stops the voice recognition.
      */
     fun setListening(listening: Boolean) {
-        _uiState.value = _uiState.value.copy(isListening = listening)
+        if (listening) {
+            startListening()
+        } else {
+            stopListening()
+        }
     }
 
     /**
      * Toggles listening state.
+     * Starts voice recognition if not listening, stops if already listening.
      */
     fun toggleListening() {
-        _uiState.value = _uiState.value.copy(isListening = !_uiState.value.isListening)
+        if (_uiState.value.isListening) {
+            stopListening()
+        } else {
+            startListening()
+        }
     }
+    
+    /**
+     * Starts voice recognition with current locale.
+     */
+    fun startListening() {
+        // Stop any ongoing speech synthesis
+        voiceService.stopSpeaking()
+        
+        // Start listening
+        voiceService.startListening(_uiState.value.currentLocale)
+    }
+    
+    /**
+     * Stops voice recognition.
+     */
+    fun stopListening() {
+        voiceService.stopListening()
+    }
+    
+    /**
+     * Stops any ongoing speech synthesis.
+     */
+    fun stopSpeaking() {
+        voiceService.stopSpeaking()
+    }
+    
+    /**
+     * Checks if voice recognition is available on this platform.
+     */
+    fun isVoiceAvailable(): Boolean = voiceService.isRecognitionAvailable()
+    
+    /**
+     * Checks if TTS is available on this platform.
+     */
+    fun isTTSAvailable(): Boolean = voiceService.isSynthesisAvailable()
 }
 
 // Platform-agnostic time function

@@ -39,8 +39,8 @@ fairair:
   ai:
     enabled: true
     project-id: ${GCP_PROJECT_ID:portfolio-476219}
-    location: ${GCP_REGION:us-east5}
-    model: claude-haiku-4-5@20251001
+    location: ${GCP_REGION:us-central1}
+    model: llama-3.1-70b-instruct-maas
     temperature: 0.7
     max-tokens: 4096
     session-timeout-seconds: 1800  # 30 minutes

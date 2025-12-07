@@ -20,7 +20,7 @@ object FarisTools {
             "properties" to mapOf(
                 "origin" to mapOf(
                     "type" to "string",
-                    "description" to "IATA airport code for departure city (e.g., RUH for Riyadh, JED for Jeddah). If not specified by user, default to RUH."
+                    "description" to "IATA airport code for departure city (e.g., RUH for Riyadh, JED for Jeddah). REQUIRED - ask user if not provided."
                 ),
                 "destination" to mapOf(
                     "type" to "string",

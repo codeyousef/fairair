@@ -21,6 +21,15 @@ class MockFairairApiClient(
     val createBookingCalls = mutableListOf<BookingRequestDto>()
     val getBookingCalls = mutableListOf<String>()
     val loginCalls = mutableListOf<Pair<String, String>>()
+    val chatMessageCalls = mutableListOf<ChatMessageCall>()
+    val clearSessionCalls = mutableListOf<String>()
+
+    data class ChatMessageCall(
+        val sessionId: String,
+        val message: String,
+        val locale: String,
+        val context: ChatContextDto?
+    )
 
     suspend fun getRoutes(): ApiResult<RouteMapDto> {
         if (shouldFail) return mockError()
@@ -128,6 +137,83 @@ class MockFairairApiClient(
         return ApiResult.Success(MockData.createBookingConfirmation(request))
     }
 
+    // ========================================================================
+    // Chat API Methods
+    // ========================================================================
+
+    suspend fun sendChatMessage(
+        sessionId: String,
+        message: String,
+        locale: String = "en-US",
+        context: ChatContextDto? = null
+    ): ApiResult<ChatResponseDto> {
+        chatMessageCalls.add(ChatMessageCall(sessionId, message, locale, context))
+        if (shouldFail) return mockError()
+        
+        // Generate mock response based on message content
+        val response = when {
+            // Arabic greeting
+            message.contains("مرحبا") || message.contains("السلام") -> ChatResponseDto(
+                text = "هلا وغلا! أنا فارس، مساعدك الذكي من فلاي أديل. كيف أقدر أساعدك اليوم؟",
+                suggestions = listOf("البحث عن رحلة", "إدارة الحجز", "تسجيل الوصول"),
+                detectedLanguage = "ar"
+            )
+            
+            // Flight search intent
+            message.contains("flight", ignoreCase = true) || 
+            message.contains("fly", ignoreCase = true) -> ChatResponseDto(
+                text = "I can help you find a flight! Where would you like to travel from and to?",
+                suggestions = listOf("Riyadh to Jeddah", "Jeddah to Dammam", "Show popular routes"),
+                detectedLanguage = "en",
+                uiType = null
+            )
+            
+            // Booking lookup intent
+            message.contains("booking", ignoreCase = true) ||
+            message.contains("pnr", ignoreCase = true) -> ChatResponseDto(
+                text = "I can help you with your booking. Please provide your 6-character booking reference (PNR).",
+                suggestions = listOf("ABC123", "Find my booking"),
+                detectedLanguage = "en"
+            )
+            
+            // Seat change intent
+            message.contains("seat", ignoreCase = true) -> ChatResponseDto(
+                text = "I can help you change your seat. Would you prefer a window or aisle seat?",
+                suggestions = listOf("Window seat", "Aisle seat", "Extra legroom"),
+                detectedLanguage = "en"
+            )
+            
+            // English greeting/help
+            message.contains("hello", ignoreCase = true) ||
+            message.contains("hi", ignoreCase = true) ||
+            message.contains("help", ignoreCase = true) -> ChatResponseDto(
+                text = "Hello! I'm Faris, your FareAir assistant. I can help you:\n\n" +
+                       "• Search for flights\n" +
+                       "• Manage your booking\n" +
+                       "• Change seats\n" +
+                       "• Check-in\n\n" +
+                       "How can I help you today?",
+                suggestions = listOf("Search for a flight", "Check my booking", "Help me check in"),
+                detectedLanguage = "en"
+            )
+            
+            // Default response
+            else -> ChatResponseDto(
+                text = "I'm here to help with your travel needs. What would you like to do?",
+                suggestions = listOf("Search flights", "Manage booking", "Help"),
+                detectedLanguage = "en"
+            )
+        }
+        
+        return ApiResult.Success(response)
+    }
+
+    suspend fun clearChatSession(sessionId: String): ApiResult<Unit> {
+        clearSessionCalls.add(sessionId)
+        if (shouldFail) return mockError()
+        return ApiResult.Success(Unit)
+    }
+
     private fun <T> mockError(): ApiResult<T> {
         return ApiResult.Error(
             code = "MOCK_ERROR",
@@ -141,6 +227,8 @@ class MockFairairApiClient(
         createBookingCalls.clear()
         getBookingCalls.clear()
         loginCalls.clear()
+        chatMessageCalls.clear()
+        clearSessionCalls.clear()
     }
 }
 

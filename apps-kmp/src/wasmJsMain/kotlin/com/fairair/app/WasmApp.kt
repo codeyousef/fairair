@@ -595,15 +595,15 @@ private fun WasmAppContent() {
                     PilotChatSheet(
                         uiState = chatUiState,
                         onSendMessage = { message ->
-                            val locale = if (localizationState.isRtl) "ar-SA" else "en-US"
-                            chatScreenModel.sendMessage(message, locale)
+                            chatScreenModel.sendMessage(message, chatUiState.currentLocale)
                         },
                         onInputChange = { chatScreenModel.updateInputText(it) },
                         onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
                         onClearChat = { chatScreenModel.clearChat() },
                         onDismiss = { showChatSheet = false },
                         onVoiceClick = { chatScreenModel.toggleListening() },
-                        locale = if (localizationState.isRtl) "ar-SA" else "en-US"
+                        onLocaleChange = { newLocale -> chatScreenModel.setLocale(newLocale) },
+                        locale = chatUiState.currentLocale
                     )
                 }
             }

@@ -73,6 +73,7 @@ class SecurityConfig(
                     .pathMatchers("/api/v1/meals", "/api/v1/meals/**").permitAll()
                     .pathMatchers("/api/v1/content", "/api/v1/content/**").permitAll()
                     .pathMatchers("/api/v1/chat", "/api/v1/chat/**").permitAll() // Pilot AI chat
+                    .pathMatchers("/api/voice/**").permitAll() // Voice STT/TTS endpoints
                     .pathMatchers(HttpMethod.GET, "/api/v1/membership/plans").permitAll()
                     
                     // Admin endpoints (admin auth is handled separately)

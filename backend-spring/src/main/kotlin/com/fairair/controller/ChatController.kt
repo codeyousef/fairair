@@ -5,8 +5,10 @@ import com.fairair.contract.dto.ChatMessageRequestDto
 import com.fairair.contract.dto.ChatResponseDto
 import com.fairair.service.ChatService
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.server.ResponseStatusException
 
 /**
  * REST controller for the Faris AI assistant chat endpoints.
@@ -34,6 +36,14 @@ class ChatController(
      */
     @PostMapping("/message")
     suspend fun sendMessage(@RequestBody request: ChatMessageRequestDto): ResponseEntity<ChatResponseDto> {
+        // Validate request
+        if (request.sessionId.isBlank()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId is required")
+        }
+        if (request.message.isBlank()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "message cannot be empty")
+        }
+
         log.info("POST /chat/message: sessionId=${request.sessionId}, message='${request.message.take(50)}...'")
 
         return try {

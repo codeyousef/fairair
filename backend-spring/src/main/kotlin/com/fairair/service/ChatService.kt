@@ -5,6 +5,7 @@ import com.fairair.ai.GenAiProvider
 import com.fairair.ai.ToolCall
 import com.fairair.ai.ToolResult
 import com.fairair.contract.dto.*
+import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -20,7 +21,8 @@ import org.springframework.stereotype.Service
 @Service
 class ChatService(
     private val aiProvider: GenAiProvider,
-    private val toolExecutor: AiToolExecutor
+    private val toolExecutor: AiToolExecutor,
+    private val objectMapper: ObjectMapper
 ) {
     private val log = LoggerFactory.getLogger(ChatService::class.java)
     
@@ -45,12 +47,18 @@ class ChatService(
         var iterations = 0
         val maxIterations = 5 // Prevent infinite loops
         
+        // Track the last tool execution result for UI metadata
+        var lastToolResult: ToolExecutionResult? = null
+        
         // Process tool calls until we get a final response
         while (response.toolCalls.isNotEmpty() && iterations < maxIterations) {
             iterations++
             log.info("Processing ${response.toolCalls.size} tool calls (iteration $iterations)")
             
-            val toolResults = executeToolCalls(response.toolCalls, request.context)
+            val (toolResults, toolExecutionResults) = executeToolCalls(response.toolCalls, request.context)
+            
+            // Keep the last tool execution result for UI data
+            lastToolResult = toolExecutionResults.lastOrNull { it.uiType != null } ?: lastToolResult
             
             response = aiProvider.continueWithToolResults(
                 sessionId = request.sessionId,
@@ -62,34 +70,41 @@ class ChatService(
             log.warn("Max tool iterations reached for session ${request.sessionId}")
         }
         
-        return createChatResponse(response, request.locale)
+        return createChatResponse(response, request.locale, lastToolResult)
     }
 
     /**
      * Execute tool calls and return results.
+     * Returns both the ToolResult list (for AI) and ToolExecutionResult list (for UI metadata).
      */
     private suspend fun executeToolCalls(
         toolCalls: List<ToolCall>,
         context: ChatContextDto?
-    ): List<ToolResult> {
-        return toolCalls.map { call ->
+    ): Pair<List<ToolResult>, List<ToolExecutionResult>> {
+        val toolResults = mutableListOf<ToolResult>()
+        val executionResults = mutableListOf<ToolExecutionResult>()
+        
+        for (call in toolCalls) {
             try {
                 log.info("Executing tool: ${call.name}")
                 val result = toolExecutor.execute(call.name, call.arguments, context)
-                ToolResult(
+                executionResults.add(result)
+                toolResults.add(ToolResult(
                     toolCallId = call.id,
                     result = result.toJson(),
                     isError = false
-                )
+                ))
             } catch (e: Exception) {
                 log.error("Tool execution failed for ${call.name}", e)
-                ToolResult(
+                toolResults.add(ToolResult(
                     toolCallId = call.id,
                     result = json.encodeToString(mapOf("error" to (e.message ?: "Unknown error"))),
                     isError = true
-                )
+                ))
             }
         }
+        
+        return Pair(toolResults, executionResults)
     }
 
     /**
@@ -97,13 +112,15 @@ class ChatService(
      */
     private fun createChatResponse(
         aiResponse: AiChatResponse,
-        locale: String?
+        locale: String?,
+        toolResult: ToolExecutionResult? = null
     ): ChatResponseDto {
-        // Extract any UI payload from the response
-        val (uiType, uiData) = extractUiPayload(aiResponse)
+        // Extract UI payload from tool execution result
+        val uiType = toolResult?.uiType
+        val uiData = toolResult?.let { serializeUiData(it.data) }
         
         // Generate suggestions based on context
-        val suggestions = generateSuggestions(aiResponse, locale)
+        val suggestions = generateSuggestions(aiResponse, locale, uiType)
         
         return ChatResponseDto(
             text = aiResponse.text,
@@ -116,26 +133,55 @@ class ChatService(
     }
 
     /**
-     * Extract UI payload from the AI response.
-     * Looks for structured data that should trigger UI components.
+     * Serialize UI data to JSON string using Jackson ObjectMapper.
      */
-    private fun extractUiPayload(response: AiChatResponse): Pair<ChatUiType?, String?> {
-        // The tool executor will have set UI context that we can extract
-        // For now, return null - UI data comes from tool execution context
-        return Pair(null, null)
+    private fun serializeUiData(data: Any?): String? {
+        if (data == null) return null
+        return try {
+            objectMapper.writeValueAsString(data)
+        } catch (e: Exception) {
+            log.error("Failed to serialize UI data", e)
+            null
+        }
     }
 
     /**
      * Generate quick reply suggestions based on context.
      */
-    private fun generateSuggestions(response: AiChatResponse, locale: String?): List<String> {
+    private fun generateSuggestions(
+        response: AiChatResponse, 
+        locale: String?,
+        uiType: ChatUiType?
+    ): List<String> {
         val isArabic = locale?.startsWith("ar") == true
         
-        // Default suggestions based on common next actions
-        return if (isArabic) {
-            listOf("بحث عن رحلة", "إدارة حجز", "تسجيل دخول")
-        } else {
-            listOf("Search flights", "Manage booking", "Check in")
+        // Context-aware suggestions based on UI type
+        return when (uiType) {
+            ChatUiType.FLIGHT_LIST -> if (isArabic) {
+                listOf("أريد الرحلة الأولى", "أظهر المزيد", "بحث مختلف")
+            } else {
+                listOf("I'll take the first one", "Show more options", "Different search")
+            }
+            ChatUiType.BOOKING_SUMMARY -> if (isArabic) {
+                listOf("غير المقعد", "إلغاء الحجز", "تسجيل الدخول")
+            } else {
+                listOf("Change my seat", "Cancel booking", "Check in")
+            }
+            ChatUiType.SEAT_MAP -> if (isArabic) {
+                listOf("مقعد نافذة", "مقعد ممر", "إلغاء")
+            } else {
+                listOf("Window seat", "Aisle seat", "Cancel")
+            }
+            ChatUiType.BOARDING_PASS -> if (isArabic) {
+                listOf("أظهر الحجز", "مساعدة")
+            } else {
+                listOf("Show my booking", "Help")
+            }
+            else -> if (isArabic) {
+                listOf("بحث عن رحلة", "إدارة حجز", "تسجيل دخول")
+            } else {
+                listOf("Search flights", "Manage booking", "Check in")
+            }
         }
     }
 

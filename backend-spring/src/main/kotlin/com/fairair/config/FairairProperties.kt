@@ -92,7 +92,7 @@ data class TimeoutProperties(
 )
 
 /**
- * AI assistant configuration for Vertex AI / Claude
+ * AI assistant configuration for Vertex AI / Llama 3.1
  */
 data class AiProperties(
     /**
@@ -111,14 +111,14 @@ data class AiProperties(
     val location: String = "us-central1",
 
     /**
-     * Model ID to use (e.g., "claude-3-5-sonnet@20241022")
+     * Model ID to use (e.g., "llama-3.1-70b-instruct-maas")
      */
-    val model: String = "claude-3-5-sonnet@20241022",
+    val model: String = "llama-3.1-70b-instruct-maas",
 
     /**
      * Maximum tokens in the response
      */
-    val maxTokens: Int = 2048,
+    val maxTokens: Int = 4096,
 
     /**
      * Temperature for response generation (0.0 - 1.0)

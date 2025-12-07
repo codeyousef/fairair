@@ -44,6 +44,8 @@ caffeine = "3.1.8"
 
 # Google Cloud / Vertex AI
 google-cloud-vertexai = "1.14.0"
+google-cloud-speech = "4.47.0"
+google-cloud-texttospeech = "2.54.0"
 
 # Multiplatform Settings
 multiplatform-settings = "1.2.0"
@@ -117,6 +119,8 @@ caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "c
 
 # Google Cloud Vertex AI
 google-cloud-vertexai = { module = "com.google.cloud:google-cloud-vertexai", version.ref = "google-cloud-vertexai" }
+google-cloud-speech = { module = "com.google.cloud:google-cloud-speech", version.ref = "google-cloud-speech" }
+google-cloud-texttospeech = { module = "com.google.cloud:google-cloud-texttospeech", version.ref = "google-cloud-texttospeech" }
 
 # Multiplatform Settings
 multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatform-settings" }

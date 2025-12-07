@@ -84,7 +84,10 @@ class JwtAuthenticationFilter(
             "/api/charter",
             // Pilot AI chat
             "/api/v1/chat/",
-            "/api/v1/chat"
+            "/api/v1/chat",
+            // Voice STT/TTS endpoints
+            "/api/voice/",
+            "/api/voice"
         )
         
         /**
