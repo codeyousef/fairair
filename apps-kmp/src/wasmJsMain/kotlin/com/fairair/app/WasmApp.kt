@@ -63,6 +63,9 @@ import com.fairair.app.ui.theme.SpaceGroteskFontFamily
 import com.fairair.app.ui.theme.VelocityColors
 import com.fairair.app.ui.theme.VelocityTheme
 import com.fairair.app.ui.theme.VelocityThemeWithBackground
+import com.fairair.app.ui.chat.ChatScreenModel
+import com.fairair.app.ui.chat.PilotOrb
+import com.fairair.app.ui.chat.PilotChatSheet
 import com.fairair.app.util.LocationService
 import com.fairair.app.util.LocationResult
 import com.fairair.app.util.LocationCoordinates
@@ -113,12 +116,19 @@ private enum class WasmScreen {
     HELP
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WasmAppContent() {
     val apiClient = koinInject<FairairApiClient>()
     val bookingFlowState = koinInject<BookingFlowState>()
+    val chatScreenModel = koinInject<ChatScreenModel>()
     val localizationState = rememberLocalizationState()
     val scope = rememberCoroutineScope()
+
+    // Chat state
+    val chatUiState by chatScreenModel.uiState.collectAsState()
+    var showChatSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Parse initial screen from URL hash
     fun parseScreenFromHash(): WasmScreen {
@@ -561,6 +571,39 @@ private fun WasmAppContent() {
                                 onNavigateToSavedBookings = { }
                             )
                         }
+                    )
+                }
+
+                // Pilot AI Orb - visible on all screens
+                PilotOrb(
+                    onClick = { showChatSheet = true },
+                    isListening = chatUiState.isListening,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
+                )
+            }
+
+            // Pilot Chat sheet - outside the main Box but inside VelocityTheme
+            if (showChatSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showChatSheet = false },
+                    sheetState = sheetState,
+                    dragHandle = null,
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent
+                ) {
+                    PilotChatSheet(
+                        uiState = chatUiState,
+                        onSendMessage = { message ->
+                            val locale = if (localizationState.isRtl) "ar-SA" else "en-US"
+                            chatScreenModel.sendMessage(message, locale)
+                        },
+                        onInputChange = { chatScreenModel.updateInputText(it) },
+                        onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
+                        onClearChat = { chatScreenModel.clearChat() },
+                        onDismiss = { showChatSheet = false },
+                        onVoiceClick = { chatScreenModel.toggleListening() },
+                        locale = if (localizationState.isRtl) "ar-SA" else "en-US"
                     )
                 }
             }

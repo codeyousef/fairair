@@ -50,7 +50,8 @@ class JwtAuthenticationFilter(
             "/api/v1/manage",
             "/api/v1/membership/plans",
             "/api/v1/seats",
-            "/api/v1/meals"
+            "/api/v1/meals",
+            "/api/v1/chat/message"
         )
         
         /**
@@ -80,7 +81,10 @@ class JwtAuthenticationFilter(
             "/api/group-bookings/",
             "/api/group-bookings",
             "/api/charter/",
-            "/api/charter"
+            "/api/charter",
+            // Pilot AI chat
+            "/api/v1/chat/",
+            "/api/v1/chat"
         )
         
         /**

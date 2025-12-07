@@ -9,6 +9,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
@@ -18,8 +19,8 @@ import com.fairair.app.localization.LocalizationProvider
 import com.fairair.app.localization.LocalizationState
 import com.fairair.app.persistence.LocalStorage
 import com.fairair.app.ui.chat.ChatScreenModel
-import com.fairair.app.ui.chat.FarisChatSheet
-import com.fairair.app.ui.chat.FarisFAB
+import com.fairair.app.ui.chat.PilotChatSheet
+import com.fairair.app.ui.chat.PilotOrb
 import com.fairair.app.ui.screens.search.SearchScreen
 import com.fairair.app.ui.theme.FairairTheme
 import org.koin.compose.KoinContext
@@ -73,22 +74,24 @@ private fun AppContent() {
                     SlideTransition(navigator)
                 }
 
-                // Faris FAB - visible on all screens
-                FarisFAB(
+                // Pilot AI Orb - visible on all screens
+                PilotOrb(
                     onClick = { showChatSheet = true },
+                    isListening = chatUiState.isListening,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(16.dp)
                 )
 
-                // Chat bottom sheet
+                // Pilot Chat sheet
                 if (showChatSheet) {
                     ModalBottomSheet(
                         onDismissRequest = { showChatSheet = false },
                         sheetState = sheetState,
-                        dragHandle = null // We have our own header
+                        dragHandle = null,
+                        containerColor = Color.Transparent
                     ) {
-                        FarisChatSheet(
+                        PilotChatSheet(
                             uiState = chatUiState,
                             onSendMessage = { message ->
                                 chatScreenModel.sendMessage(message, currentLocale)
@@ -97,6 +100,7 @@ private fun AppContent() {
                             onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
                             onClearChat = { chatScreenModel.clearChat() },
                             onDismiss = { showChatSheet = false },
+                            onVoiceClick = { chatScreenModel.toggleListening() },
                             locale = currentLocale
                         )
                     }

@@ -35,6 +35,7 @@ data class ChatMessage(
 data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isLoading: Boolean = false,
+    val isListening: Boolean = false,
     val inputText: String = "",
     val isExpanded: Boolean = false,
     val error: String? = null
@@ -187,6 +188,20 @@ class ChatScreenModel(
      */
     fun setExpanded(expanded: Boolean) {
         _uiState.value = _uiState.value.copy(isExpanded = expanded)
+    }
+
+    /**
+     * Sets the listening state (for voice input).
+     */
+    fun setListening(listening: Boolean) {
+        _uiState.value = _uiState.value.copy(isListening = listening)
+    }
+
+    /**
+     * Toggles listening state.
+     */
+    fun toggleListening() {
+        _uiState.value = _uiState.value.copy(isListening = !_uiState.value.isListening)
     }
 }
 
