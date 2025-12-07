@@ -34,6 +34,9 @@ dependencies {
     // Caffeine (caching)
     implementation(libs.caffeine)
 
+    // Google Cloud Vertex AI
+    implementation(libs.google.cloud.vertexai)
+
     // JWT
     implementation(libs.jjwt.api)
     runtimeOnly(libs.jjwt.impl)

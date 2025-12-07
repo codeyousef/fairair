@@ -48,6 +48,9 @@ import com.fairair.contract.dto.SeatRowDto
 import com.fairair.contract.dto.SeatDto
 import com.fairair.contract.dto.SeatLegendDto
 import com.fairair.contract.dto.MealOptionDto
+import com.fairair.contract.dto.ChatMessageRequestDto
+import com.fairair.contract.dto.ChatResponseDto
+import com.fairair.contract.dto.ChatContextDto
 import com.fairair.contract.model.MembershipPlan
 import com.fairair.contract.model.Subscription
 import com.fairair.contract.model.SubscribeRequest
@@ -448,6 +451,50 @@ class FairairApiClient(
                     header(HttpHeaders.Authorization, "Bearer $authToken")
                 }
             }.body()
+        }
+    }
+
+    // ============================================================================
+    // Chat / Faris AI Assistant Endpoints
+    // ============================================================================
+
+    /**
+     * Sends a message to the Faris AI assistant.
+     * @param sessionId Unique session ID for conversation continuity
+     * @param message The user's message
+     * @param locale User's locale (e.g., "en-US", "ar-SA")
+     * @param context Optional context about current app state
+     * @return ChatResponseDto with the AI's response
+     */
+    suspend fun sendChatMessage(
+        sessionId: String,
+        message: String,
+        locale: String? = null,
+        context: ChatContextDto? = null
+    ): ApiResult<ChatResponseDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.Chat.MESSAGE}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    ChatMessageRequestDto(
+                        sessionId = sessionId,
+                        message = message,
+                        locale = locale,
+                        context = context
+                    )
+                )
+            }.body()
+        }
+    }
+
+    /**
+     * Clears a chat session history.
+     * @param sessionId The session ID to clear
+     * @return Success with Unit on success
+     */
+    suspend fun clearChatSession(sessionId: String): ApiResult<Unit> {
+        return safeApiCall {
+            httpClient.delete("$baseUrl${ApiRoutes.Chat.session(sessionId)}").body()
         }
     }
 

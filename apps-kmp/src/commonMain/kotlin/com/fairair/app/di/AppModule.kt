@@ -13,6 +13,7 @@ import com.fairair.app.ui.screens.saved.SavedBookingsScreenModel
 import com.fairair.app.ui.screens.checkin.CheckInScreenModel
 import com.fairair.app.ui.screens.manage.ManageBookingScreenModel
 import com.fairair.app.ui.screens.membership.MembershipScreenModel
+import com.fairair.app.ui.chat.ChatScreenModel
 import org.koin.dsl.module
 
 /**
@@ -151,6 +152,14 @@ fun createScreenModelModule() = module {
         MembershipScreenModel(
             apiClient = get(),
             localStorage = get()
+        )
+    }
+
+    // Chat Screen Model for Faris AI assistant
+    // Singleton to maintain conversation state across screen changes
+    single {
+        ChatScreenModel(
+            apiClient = get()
         )
     }
 }

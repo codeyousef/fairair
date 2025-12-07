@@ -385,4 +385,118 @@ class ManageBookingService(
         "CAI" -> "Cairo International Airport"
         else -> code
     }
+
+    // ============================================================================
+    // AI Tool Support Methods
+    // ============================================================================
+
+    /**
+     * Cancel a specific passenger from a group booking (Split PNR operation).
+     * For AI tool: cancel_specific_passenger
+     */
+    suspend fun cancelPassenger(pnr: String, passengerName: String): CancelPassengerResult {
+        log.info("Cancelling passenger $passengerName from PNR=$pnr")
+        
+        val normalizedPnr = pnr.uppercase().trim()
+        val booking = bookingRepository.findByPnr(normalizedPnr)
+            ?: throw BookingNotFoundException(normalizedPnr)
+        
+        // In production: This would call Navitaire's DividePNR API
+        // Mock: Generate a new PNR for the cancelled passenger
+        val newPnr = PnrCode.generate().value
+        val refundAmount = (booking.totalAmount / 2.0) // Mock refund calculation
+        
+        log.info("Split PNR: $normalizedPnr -> $newPnr for passenger $passengerName (mock)")
+        
+        return CancelPassengerResult(
+            originalPnr = normalizedPnr,
+            newPnr = newPnr,
+            cancelledPassenger = passengerName,
+            refundAmount = refundAmount
+        )
+    }
+
+    /**
+     * Calculate fees for changing to a different flight.
+     * For AI tool: calculate_change_fees
+     */
+    suspend fun calculateChangeFees(pnr: String, newFlightNumber: String): ChangeFeesResult {
+        log.info("Calculating change fees for PNR=$pnr to flight $newFlightNumber")
+        
+        val normalizedPnr = pnr.uppercase().trim()
+        val booking = bookingRepository.findByPnr(normalizedPnr)
+            ?: throw BookingNotFoundException(normalizedPnr)
+        
+        // Mock fee calculation
+        val changeFee = 50.0 // SAR
+        val priceDifference = 75.0 // Mock price difference
+        
+        return ChangeFeesResult(
+            pnr = normalizedPnr,
+            currentFlightNumber = booking.flightNumber,
+            newFlightNumber = newFlightNumber,
+            changeFee = changeFee,
+            priceDifference = priceDifference,
+            totalDue = changeFee + priceDifference
+        )
+    }
+
+    /**
+     * Change a booking to a different flight.
+     * For AI tool: change_flight
+     */
+    suspend fun changeFlight(
+        pnr: String,
+        newFlightNumber: String,
+        passengerName: String?
+    ): ChangeFlightResult {
+        log.info("Changing flight for PNR=$pnr to $newFlightNumber")
+        
+        val normalizedPnr = pnr.uppercase().trim()
+        val booking = bookingRepository.findByPnr(normalizedPnr)
+            ?: throw BookingNotFoundException(normalizedPnr)
+        
+        // Mock: Just return success with affected passengers
+        val affectedPassengers = if (passengerName != null) {
+            listOf(passengerName)
+        } else {
+            // Parse all passenger names from JSON
+            val regex = """"firstName"\s*:\s*"([^"]+)"""".toRegex()
+            regex.findAll(booking.passengersJson).map { it.groupValues[1] }.toList()
+        }
+        
+        log.info("Flight changed from ${booking.flightNumber} to $newFlightNumber (mock)")
+        
+        return ChangeFlightResult(
+            pnr = normalizedPnr,
+            oldFlightNumber = booking.flightNumber,
+            newFlightNumber = newFlightNumber,
+            affectedPassengers = affectedPassengers
+        )
+    }
 }
+
+// Data classes for AI tool results
+
+data class CancelPassengerResult(
+    val originalPnr: String,
+    val newPnr: String,
+    val cancelledPassenger: String,
+    val refundAmount: Double
+)
+
+data class ChangeFeesResult(
+    val pnr: String,
+    val currentFlightNumber: String,
+    val newFlightNumber: String,
+    val changeFee: Double,
+    val priceDifference: Double,
+    val totalDue: Double
+)
+
+data class ChangeFlightResult(
+    val pnr: String,
+    val oldFlightNumber: String,
+    val newFlightNumber: String,
+    val affectedPassengers: List<String>
+)

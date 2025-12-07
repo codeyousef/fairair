@@ -28,7 +28,12 @@ data class FairairProperties(
     /**
      * External API timeout settings
      */
-    val timeout: TimeoutProperties = TimeoutProperties()
+    val timeout: TimeoutProperties = TimeoutProperties(),
+
+    /**
+     * AI assistant configuration
+     */
+    val ai: AiProperties = AiProperties()
 )
 
 /**
@@ -84,4 +89,44 @@ data class TimeoutProperties(
      * Overall request timeout in milliseconds (default: 60 seconds)
      */
     val requestMs: Long = 60000
+)
+
+/**
+ * AI assistant configuration for Vertex AI / Claude
+ */
+data class AiProperties(
+    /**
+     * Whether AI features are enabled
+     */
+    val enabled: Boolean = true,
+
+    /**
+     * Google Cloud project ID for Vertex AI
+     */
+    val projectId: String = "",
+
+    /**
+     * Google Cloud region for Vertex AI (e.g., "us-central1")
+     */
+    val location: String = "us-central1",
+
+    /**
+     * Model ID to use (e.g., "claude-3-5-sonnet@20241022")
+     */
+    val model: String = "claude-3-5-sonnet@20241022",
+
+    /**
+     * Maximum tokens in the response
+     */
+    val maxTokens: Int = 2048,
+
+    /**
+     * Temperature for response generation (0.0 - 1.0)
+     */
+    val temperature: Double = 0.7,
+
+    /**
+     * Session timeout in seconds (default: 30 minutes)
+     */
+    val sessionTimeoutSeconds: Long = 1800
 )

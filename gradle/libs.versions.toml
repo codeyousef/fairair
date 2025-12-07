@@ -42,6 +42,9 @@ voyager = "1.1.0-beta03"
 # Caffeine
 caffeine = "3.1.8"
 
+# Google Cloud / Vertex AI
+google-cloud-vertexai = "1.14.0"
+
 # Multiplatform Settings
 multiplatform-settings = "1.2.0"
 
@@ -111,6 +114,9 @@ kotlinx-coroutines-reactor = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 
 # Caffeine (caching)
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+
+# Google Cloud Vertex AI
+google-cloud-vertexai = { module = "com.google.cloud:google-cloud-vertexai", version.ref = "google-cloud-vertexai" }
 
 # Multiplatform Settings
 multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatform-settings" }

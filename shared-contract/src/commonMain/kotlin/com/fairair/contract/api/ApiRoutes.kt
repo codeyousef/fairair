@@ -518,6 +518,54 @@ object ApiRoutes {
          */
         const val CHECK = "/health"
     }
+
+    /**
+     * AI Chat endpoints for the Faris assistant.
+     */
+    object Chat {
+        /**
+         * Base path for chat endpoints.
+         */
+        const val BASE = "$BASE_PATH/chat"
+
+        /**
+         * POST: Send a message to the AI assistant.
+         * Request: ChatMessageRequestDto
+         * Response: ChatResponseDto
+         */
+        const val MESSAGE = "$BASE/message"
+
+        /**
+         * GET: Retrieve chat session history.
+         * Path param: {sessionId}
+         * Response: ChatSessionDto
+         */
+        const val SESSION = "$BASE/sessions/{sessionId}"
+
+        /**
+         * Constructs URL for session retrieval.
+         */
+        fun session(sessionId: String): String = "$BASE/sessions/$sessionId"
+
+        /**
+         * DELETE: Clear a chat session.
+         * Path param: {sessionId}
+         * Response: 204 No Content
+         */
+        const val DELETE_SESSION = "$BASE/sessions/{sessionId}"
+
+        /**
+         * POST: Create a new chat session.
+         * Response: ChatSessionDto with new sessionId
+         */
+        const val CREATE_SESSION = "$BASE/sessions"
+
+        /**
+         * WebSocket endpoint for streaming chat.
+         * Query param: sessionId
+         */
+        const val STREAM = "$BASE/stream"
+    }
 }
 
 /**
