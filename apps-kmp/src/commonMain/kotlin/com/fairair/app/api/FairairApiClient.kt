@@ -51,6 +51,13 @@ import com.fairair.contract.dto.MealOptionDto
 import com.fairair.contract.dto.ChatMessageRequestDto
 import com.fairair.contract.dto.ChatResponseDto
 import com.fairair.contract.dto.ChatContextDto
+import com.fairair.contract.dto.UserProfileDto
+import com.fairair.contract.dto.SavedTravelerDto
+import com.fairair.contract.dto.SaveTravelerRequest
+import com.fairair.contract.dto.TravelDocumentDto
+import com.fairair.contract.dto.AddDocumentRequest
+import com.fairair.contract.dto.SavedPaymentMethodDto
+import com.fairair.contract.dto.SavePaymentMethodRequest
 import com.fairair.contract.model.MembershipPlan
 import com.fairair.contract.model.Subscription
 import com.fairair.contract.model.SubscribeRequest
@@ -495,6 +502,153 @@ class FairairApiClient(
     suspend fun clearChatSession(sessionId: String): ApiResult<Unit> {
         return safeApiCall {
             httpClient.delete("$baseUrl${ApiRoutes.Chat.session(sessionId)}").body()
+        }
+    }
+
+    // ==================== Profile API ====================
+
+    /**
+     * Gets the user's complete profile including saved travelers and payment methods.
+     * @param authToken JWT token for authentication
+     * @return User profile with saved travelers and payment methods
+     */
+    suspend fun getProfile(authToken: String): ApiResult<UserProfileDto> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Profile.BASE}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    /**
+     * Gets all saved travelers for the user.
+     * @param authToken JWT token for authentication
+     * @return List of saved travelers
+     */
+    suspend fun getSavedTravelers(authToken: String): ApiResult<List<SavedTravelerDto>> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Profile.TRAVELERS}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    /**
+     * Creates a new saved traveler.
+     * @param authToken JWT token for authentication
+     * @param request The traveler creation request
+     * @return The created traveler
+     */
+    suspend fun createSavedTraveler(authToken: String, request: SaveTravelerRequest): ApiResult<SavedTravelerDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.Profile.TRAVELERS}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+        }
+    }
+
+    /**
+     * Updates an existing saved traveler.
+     * @param authToken JWT token for authentication
+     * @param travelerId The traveler ID to update
+     * @param request The traveler update request
+     * @return The updated traveler
+     */
+    suspend fun updateSavedTraveler(authToken: String, travelerId: String, request: SaveTravelerRequest): ApiResult<SavedTravelerDto> {
+        return safeApiCall {
+            httpClient.put("$baseUrl${ApiRoutes.Profile.traveler(travelerId)}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+        }
+    }
+
+    /**
+     * Deletes a saved traveler.
+     * @param authToken JWT token for authentication
+     * @param travelerId The traveler ID to delete
+     */
+    suspend fun deleteSavedTraveler(authToken: String, travelerId: String): ApiResult<Unit> {
+        return safeApiCall {
+            httpClient.delete("$baseUrl${ApiRoutes.Profile.traveler(travelerId)}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    /**
+     * Adds a travel document to a traveler.
+     * @param authToken JWT token for authentication
+     * @param travelerId The traveler ID
+     * @param request The document creation request
+     * @return The created document
+     */
+    suspend fun addTravelDocument(authToken: String, travelerId: String, request: AddDocumentRequest): ApiResult<TravelDocumentDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.Profile.travelerDocuments(travelerId)}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+        }
+    }
+
+    /**
+     * Deletes a travel document.
+     * @param authToken JWT token for authentication
+     * @param travelerId The traveler ID
+     * @param documentId The document ID to delete
+     */
+    suspend fun deleteTravelDocument(authToken: String, travelerId: String, documentId: String): ApiResult<Unit> {
+        return safeApiCall {
+            httpClient.delete("$baseUrl${ApiRoutes.Profile.document(travelerId, documentId)}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    /**
+     * Gets all saved payment methods for the user.
+     * @param authToken JWT token for authentication
+     * @return List of saved payment methods
+     */
+    suspend fun getSavedPaymentMethods(authToken: String): ApiResult<List<SavedPaymentMethodDto>> {
+        return safeApiCall {
+            httpClient.get("$baseUrl${ApiRoutes.Profile.PAYMENT_METHODS}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
+        }
+    }
+
+    /**
+     * Creates a new saved payment method.
+     * @param authToken JWT token for authentication
+     * @param request The payment method creation request
+     * @return The created payment method
+     */
+    suspend fun createSavedPaymentMethod(authToken: String, request: SavePaymentMethodRequest): ApiResult<SavedPaymentMethodDto> {
+        return safeApiCall {
+            httpClient.post("$baseUrl${ApiRoutes.Profile.PAYMENT_METHODS}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+        }
+    }
+
+    /**
+     * Deletes a saved payment method.
+     * @param authToken JWT token for authentication
+     * @param paymentMethodId The payment method ID to delete
+     */
+    suspend fun deleteSavedPaymentMethod(authToken: String, paymentMethodId: String): ApiResult<Unit> {
+        return safeApiCall {
+            httpClient.delete("$baseUrl${ApiRoutes.Profile.paymentMethod(paymentMethodId)}") {
+                header(HttpHeaders.Authorization, "Bearer $authToken")
+            }.body()
         }
     }
 

@@ -4,6 +4,8 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.fairair.app.api.ApiResult
 import com.fairair.app.api.FairairApiClient
+import com.fairair.app.persistence.LocalStorage
+import com.fairair.app.state.BookingFlowState
 import com.fairair.app.voice.VoiceLanguages
 import com.fairair.app.voice.VoiceService
 import com.fairair.app.voice.VoiceState
@@ -56,7 +58,9 @@ data class ChatUiState(
  * Manages conversation state, API calls, and voice interaction.
  */
 class ChatScreenModel(
-    private val apiClient: FairairApiClient
+    private val apiClient: FairairApiClient,
+    private val localStorage: LocalStorage,
+    private val bookingFlowState: BookingFlowState
 ) : ScreenModel {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -106,6 +110,25 @@ class ChatScreenModel(
     }
 
     /**
+     * Builds the full context for the current message, including user info and search state.
+     */
+    private fun buildFullContext(): ChatContextDto {
+        val user = localStorage.getCurrentUser()
+        val searchResult = bookingFlowState.searchResult
+        val selectedFlight = bookingFlowState.selectedFlight
+        
+        return ChatContextDto(
+            currentPnr = currentContext?.currentPnr,
+            currentScreen = currentContext?.currentScreen,
+            userId = user?.id,
+            userEmail = user?.email,
+            lastSearchId = searchResult?.searchId,
+            lastFlightNumber = selectedFlight?.flight?.flightNumber,
+            metadata = currentContext?.metadata ?: emptyMap()
+        )
+    }
+
+    /**
      * Updates the input text.
      */
     fun updateInputText(text: String) {
@@ -146,7 +169,7 @@ class ChatScreenModel(
                 sessionId = sessionId,
                 message = trimmedMessage,
                 locale = locale,
-                context = currentContext
+                context = buildFullContext()
             )
 
             // Remove loading message

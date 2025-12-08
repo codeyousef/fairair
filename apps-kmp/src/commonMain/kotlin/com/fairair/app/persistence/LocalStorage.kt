@@ -1,6 +1,8 @@
 package com.fairair.app.persistence
 
 import com.fairair.contract.dto.BookingConfirmationDto
+import com.fairair.contract.dto.SavedPaymentMethodDto
+import com.fairair.contract.dto.SavedTravelerDto
 import com.fairair.contract.dto.UserInfoDto
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.Flow
@@ -55,6 +57,8 @@ class LocalStorage(
         private const val KEY_SEARCH_HISTORY = "search_history"
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_CURRENT_USER = "current_user"
+        private const val KEY_SAVED_TRAVELERS = "saved_travelers"
+        private const val KEY_SAVED_PAYMENT_METHODS = "saved_payment_methods"
         private const val ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000L // 24 hours
         private const val MAX_SEARCH_HISTORY = 10
     }
@@ -306,6 +310,110 @@ class LocalStorage(
         _searchHistoryFlow.value = emptyList()
     }
 
+    // ============ Saved Travelers ============
+
+    /**
+     * Saves a list of travelers to local storage.
+     * Used as a local cache of the user's saved travelers from the backend.
+     */
+    fun saveTravelers(travelers: List<SavedTravelerDto>) {
+        val jsonString = json.encodeToString(travelers)
+        settings.putString(KEY_SAVED_TRAVELERS, jsonString)
+    }
+
+    /**
+     * Gets the cached list of saved travelers.
+     */
+    fun getSavedTravelers(): List<SavedTravelerDto> {
+        val jsonString = settings.getString(KEY_SAVED_TRAVELERS, "[]")
+        return try {
+            json.decodeFromString(jsonString)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Adds or updates a single traveler in the local cache.
+     */
+    fun upsertTraveler(traveler: SavedTravelerDto) {
+        val current = getSavedTravelers().toMutableList()
+        val existingIndex = current.indexOfFirst { it.id == traveler.id }
+        if (existingIndex >= 0) {
+            current[existingIndex] = traveler
+        } else {
+            current.add(traveler)
+        }
+        saveTravelers(current)
+    }
+
+    /**
+     * Removes a traveler from the local cache.
+     */
+    fun removeTraveler(travelerId: String) {
+        val updated = getSavedTravelers().filterNot { it.id == travelerId }
+        saveTravelers(updated)
+    }
+
+    /**
+     * Clears all saved travelers from local cache.
+     */
+    fun clearSavedTravelers() {
+        settings.putString(KEY_SAVED_TRAVELERS, "[]")
+    }
+
+    // ============ Saved Payment Methods ============
+
+    /**
+     * Saves a list of payment methods to local storage.
+     * Used as a local cache of the user's saved payment methods from the backend.
+     */
+    fun savePaymentMethods(paymentMethods: List<SavedPaymentMethodDto>) {
+        val jsonString = json.encodeToString(paymentMethods)
+        settings.putString(KEY_SAVED_PAYMENT_METHODS, jsonString)
+    }
+
+    /**
+     * Gets the cached list of saved payment methods.
+     */
+    fun getSavedPaymentMethods(): List<SavedPaymentMethodDto> {
+        val jsonString = settings.getString(KEY_SAVED_PAYMENT_METHODS, "[]")
+        return try {
+            json.decodeFromString(jsonString)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Adds or updates a payment method in the local cache.
+     */
+    fun upsertPaymentMethod(paymentMethod: SavedPaymentMethodDto) {
+        val current = getSavedPaymentMethods().toMutableList()
+        val existingIndex = current.indexOfFirst { it.id == paymentMethod.id }
+        if (existingIndex >= 0) {
+            current[existingIndex] = paymentMethod
+        } else {
+            current.add(paymentMethod)
+        }
+        savePaymentMethods(current)
+    }
+
+    /**
+     * Removes a payment method from the local cache.
+     */
+    fun removePaymentMethod(paymentMethodId: String) {
+        val updated = getSavedPaymentMethods().filterNot { it.id == paymentMethodId }
+        savePaymentMethods(updated)
+    }
+
+    /**
+     * Clears all saved payment methods from local cache.
+     */
+    fun clearSavedPaymentMethods() {
+        settings.putString(KEY_SAVED_PAYMENT_METHODS, "[]")
+    }
+
     // ============ Utility ============
 
     /**
@@ -314,6 +422,8 @@ class LocalStorage(
     suspend fun clearAll() {
         clearAllBookings()
         clearSearchHistory()
+        clearSavedTravelers()
+        clearSavedPaymentMethods()
         invalidateRouteCache()
         settings.putString(KEY_CURRENT_LANGUAGE, "en")
         _currentLanguageFlow.value = "en"

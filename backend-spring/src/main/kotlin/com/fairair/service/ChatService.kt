@@ -39,9 +39,19 @@ class ChatService(
     suspend fun processMessage(request: ChatMessageRequestDto): ChatResponseDto {
         log.info("Processing chat message for session ${request.sessionId}")
         
+        // Include locale hint in the message if provided and it's English
+        // This helps the AI maintain language consistency
+        val messageWithLocale = if (request.locale?.startsWith("en") == true) {
+            "[User language: English]\n${request.message}"
+        } else if (request.locale?.startsWith("ar") == true) {
+            "[User language: Arabic]\n${request.message}"
+        } else {
+            request.message
+        }
+        
         var response = aiProvider.chat(
             sessionId = request.sessionId,
-            userMessage = request.message
+            userMessage = messageWithLocale
         )
         
         var iterations = 0

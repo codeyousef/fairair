@@ -65,7 +65,7 @@ import com.fairair.app.ui.theme.VelocityTheme
 import com.fairair.app.ui.theme.VelocityThemeWithBackground
 import com.fairair.app.ui.chat.ChatScreenModel
 import com.fairair.app.ui.chat.PilotOrb
-import com.fairair.app.ui.chat.PilotChatSheet
+import com.fairair.app.ui.chat.PilotFullScreen
 import com.fairair.app.util.LocationService
 import com.fairair.app.util.LocationResult
 import com.fairair.app.util.LocationCoordinates
@@ -127,8 +127,7 @@ private fun WasmAppContent() {
 
     // Chat state
     val chatUiState by chatScreenModel.uiState.collectAsState()
-    var showChatSheet by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showPilotAI by remember { mutableStateOf(false) }
 
     // Parse initial screen from URL hash
     fun parseScreenFromHash(): WasmScreen {
@@ -574,39 +573,32 @@ private fun WasmAppContent() {
                     )
                 }
 
-                // Pilot AI Orb - visible on all screens
-                PilotOrb(
-                    onClick = { showChatSheet = true },
-                    isListening = chatUiState.isListening,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                )
-            }
-
-            // Pilot Chat sheet - outside the main Box but inside VelocityTheme
-            if (showChatSheet) {
-                ModalBottomSheet(
-                    onDismissRequest = { showChatSheet = false },
-                    sheetState = sheetState,
-                    dragHandle = null,
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent
-                ) {
-                    PilotChatSheet(
-                        uiState = chatUiState,
-                        onSendMessage = { message ->
-                            // Use site locale for AI interaction
-                            val siteLocale = if (localizationState.isRtl) "ar-SA" else "en-US"
-                            chatScreenModel.sendMessage(message, siteLocale)
-                        },
-                        onInputChange = { chatScreenModel.updateInputText(it) },
-                        onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
-                        onClearChat = { chatScreenModel.clearChat() },
-                        onDismiss = { showChatSheet = false },
-                        onVoiceClick = { chatScreenModel.toggleListening() },
-                        isRtl = localizationState.isRtl
+                // Pilot AI Orb - visible when AI is not open
+                if (!showPilotAI) {
+                    PilotOrb(
+                        onClick = { showPilotAI = true },
+                        isListening = chatUiState.isListening,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
                     )
                 }
+
+                // Pilot Full Screen AI - with fade animation
+                PilotFullScreen(
+                    visible = showPilotAI,
+                    uiState = chatUiState,
+                    onSendMessage = { message ->
+                        val locale = if (localizationState.isRtl) "ar-SA" else "en-US"
+                        chatScreenModel.sendMessage(message, locale)
+                    },
+                    onInputChange = { chatScreenModel.updateInputText(it) },
+                    onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
+                    onClearChat = { chatScreenModel.clearChat() },
+                    onDismiss = { showPilotAI = false },
+                    onVoiceClick = { chatScreenModel.toggleListening() },
+                    locale = if (localizationState.isRtl) "ar-SA" else "en-US"
+                )
             }
         }
     }

@@ -566,6 +566,139 @@ object ApiRoutes {
          */
         const val STREAM = "$BASE/stream"
     }
+
+    /**
+     * User Profile endpoints - saved travelers and payment methods.
+     */
+    object Profile {
+        /**
+         * Base path for profile endpoints.
+         */
+        const val BASE = "$BASE_PATH/profile"
+
+        /**
+         * GET: Get current user's complete profile.
+         * Response: UserProfileDto
+         */
+        const val GET_PROFILE = BASE
+
+        // ============ Saved Travelers ============
+
+        /**
+         * GET: Get all saved travelers.
+         * Response: List<SavedTravelerDto>
+         */
+        const val TRAVELERS = "$BASE/travelers"
+
+        /**
+         * POST: Add a new saved traveler.
+         * Request: SaveTravelerRequest
+         * Response: SavedTravelerDto
+         */
+        const val ADD_TRAVELER = TRAVELERS
+
+        /**
+         * GET: Get a specific saved traveler.
+         * Path param: {travelerId}
+         * Response: SavedTravelerDto
+         */
+        const val TRAVELER = "$TRAVELERS/{travelerId}"
+
+        /**
+         * Constructs URL for a specific traveler.
+         */
+        fun traveler(travelerId: String): String = "$TRAVELERS/$travelerId"
+
+        /**
+         * PUT: Update a saved traveler.
+         * Path param: {travelerId}
+         * Request: SaveTravelerRequest
+         * Response: SavedTravelerDto
+         */
+        const val UPDATE_TRAVELER = TRAVELER
+
+        /**
+         * DELETE: Remove a saved traveler.
+         * Path param: {travelerId}
+         * Response: 204 No Content
+         */
+        const val DELETE_TRAVELER = TRAVELER
+
+        // ============ Travel Documents ============
+
+        /**
+         * GET: Get all documents for a traveler.
+         * Path param: {travelerId}
+         * Response: List<TravelDocumentDto>
+         */
+        const val TRAVELER_DOCUMENTS = "$TRAVELERS/{travelerId}/documents"
+
+        /**
+         * Constructs URL for traveler documents.
+         */
+        fun travelerDocuments(travelerId: String): String = "$TRAVELERS/$travelerId/documents"
+
+        /**
+         * POST: Add a document to a traveler.
+         * Path param: {travelerId}
+         * Request: AddDocumentRequest
+         * Response: TravelDocumentDto
+         */
+        const val ADD_DOCUMENT = TRAVELER_DOCUMENTS
+
+        /**
+         * DELETE: Remove a document from a traveler.
+         * Path params: {travelerId}, {documentId}
+         * Response: 204 No Content
+         */
+        const val DELETE_DOCUMENT = "$TRAVELERS/{travelerId}/documents/{documentId}"
+
+        /**
+         * Constructs URL for a specific document.
+         */
+        fun document(travelerId: String, documentId: String): String = 
+            "$TRAVELERS/$travelerId/documents/$documentId"
+
+        // ============ Saved Payment Methods ============
+
+        /**
+         * GET: Get all saved payment methods.
+         * Response: List<SavedPaymentMethodDto>
+         */
+        const val PAYMENT_METHODS = "$BASE/payment-methods"
+
+        /**
+         * POST: Add a new payment method.
+         * Request: SavePaymentMethodRequest
+         * Response: SavedPaymentMethodDto
+         */
+        const val ADD_PAYMENT_METHOD = PAYMENT_METHODS
+
+        /**
+         * DELETE: Remove a payment method.
+         * Path param: {paymentMethodId}
+         * Response: 204 No Content
+         */
+        const val DELETE_PAYMENT_METHOD = "$PAYMENT_METHODS/{paymentMethodId}"
+
+        /**
+         * Constructs URL for a specific payment method.
+         */
+        fun paymentMethod(paymentMethodId: String): String = "$PAYMENT_METHODS/$paymentMethodId"
+
+        /**
+         * PUT: Set a payment method as default.
+         * Path param: {paymentMethodId}
+         * Response: SavedPaymentMethodDto
+         */
+        const val SET_DEFAULT_PAYMENT = "$PAYMENT_METHODS/{paymentMethodId}/default"
+
+        /**
+         * Constructs URL for setting default payment.
+         */
+        fun setDefaultPayment(paymentMethodId: String): String = 
+            "$PAYMENT_METHODS/$paymentMethodId/default"
+    }
 }
 
 /**

@@ -40,6 +40,10 @@ class UserService(
         return userRepository.findByEmailIgnoreCase(email)?.toDemoUser()
     }
 
+    suspend fun getUserById(userId: String): DemoUser? {
+        return userRepository.findById(userId)?.toDemoUser()
+    }
+
     suspend fun validateCredentials(email: String, password: String): DemoUser? {
         val user = userRepository.findByEmailIgnoreCase(email) ?: return null
         return if (passwordEncoder.matches(password, user.passwordHash)) {

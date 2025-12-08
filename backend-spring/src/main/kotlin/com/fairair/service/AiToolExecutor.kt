@@ -17,7 +17,9 @@ import org.springframework.stereotype.Service
 class AiToolExecutor(
     private val navitaireClient: NavitaireClient,
     private val flightService: FlightService,
-    private val manageBookingService: ManageBookingService
+    private val manageBookingService: ManageBookingService,
+    private val bookingService: BookingService,
+    private val profileService: ProfileService
 ) {
     private val log = LoggerFactory.getLogger(AiToolExecutor::class.java)
     
@@ -46,6 +48,9 @@ class AiToolExecutor(
         return try {
             when (toolName) {
                 "search_flights" -> searchFlights(args)
+                "select_flight" -> selectFlight(args)
+                "get_saved_travelers" -> getSavedTravelers(args, context)
+                "create_booking" -> createBooking(args, context)
                 "get_booking" -> getBooking(args)
                 "cancel_specific_passenger" -> cancelSpecificPassenger(args)
                 "calculate_change_fees" -> calculateChangeFees(args)
@@ -114,6 +119,214 @@ class AiToolExecutor(
             ),
             uiType = ChatUiType.FLIGHT_LIST
         )
+    }
+
+    /**
+     * Handle flight selection from search results.
+     * This confirms the selection and returns flight details.
+     */
+    private suspend fun selectFlight(args: JsonObject): ToolExecutionResult {
+        val flightNumber = args["flight_number"]?.jsonPrimitive?.content?.uppercase()
+            ?: return ToolExecutionResult(data = mapOf("error" to "flight_number is required"))
+        
+        log.info("Flight selected: $flightNumber")
+        
+        // Return confirmation that the flight was selected
+        // The actual booking flow will be handled by the frontend
+        return ToolExecutionResult(
+            data = mapOf(
+                "status" to "selected",
+                "flightNumber" to flightNumber,
+                "message" to "Flight $flightNumber has been selected. Ready to proceed with booking."
+            ),
+            uiType = ChatUiType.FLIGHT_SELECTED
+        )
+    }
+
+    /**
+     * Get saved travelers for the current user.
+     * Returns list of travelers with their documents for booking.
+     */
+    private suspend fun getSavedTravelers(args: JsonObject, context: ChatContextDto?): ToolExecutionResult {
+        val userId = context?.userId
+            ?: return ToolExecutionResult(data = mapOf("error" to "User not logged in. Please log in to access saved travelers."))
+        
+        log.info("Getting saved travelers for user: $userId")
+        
+        val travelers = profileService.getTravelers(userId)
+        
+        if (travelers.isEmpty()) {
+            return ToolExecutionResult(
+                data = mapOf(
+                    "travelers" to emptyList<Any>(),
+                    "message" to "No saved travelers found. Please add travelers in your profile."
+                )
+            )
+        }
+        
+        val travelersList = travelers.map { traveler ->
+            mapOf(
+                "id" to traveler.id,
+                "firstName" to traveler.firstName,
+                "lastName" to traveler.lastName,
+                "fullName" to "${traveler.firstName} ${traveler.lastName}",
+                "dateOfBirth" to traveler.dateOfBirth,
+                "nationality" to traveler.nationality,
+                "gender" to traveler.gender.name,
+                "email" to traveler.email,
+                "phone" to traveler.phone,
+                "isMainTraveler" to traveler.isMainTraveler,
+                "documents" to traveler.documents.map { doc ->
+                    mapOf(
+                        "type" to doc.type.name,
+                        "number" to doc.number,
+                        "issuingCountry" to doc.issuingCountry,
+                        "expiryDate" to doc.expiryDate,
+                        "isDefault" to doc.isDefault
+                    )
+                }
+            )
+        }
+        
+        return ToolExecutionResult(
+            data = mapOf(
+                "travelers" to travelersList,
+                "count" to travelers.size,
+                "message" to "Found ${travelers.size} saved traveler(s)"
+            )
+        )
+    }
+
+    /**
+     * Create a booking with the selected flight and passengers.
+     * This actually creates the booking in the system.
+     */
+    private suspend fun createBooking(args: JsonObject, context: ChatContextDto?): ToolExecutionResult {
+        val userId = context?.userId
+        val searchId = context?.lastSearchId
+            ?: return ToolExecutionResult(data = mapOf("error" to "No search found. Please search for flights first."))
+        
+        val flightNumber = args["flight_number"]?.jsonPrimitive?.content?.uppercase()
+            ?: return ToolExecutionResult(data = mapOf("error" to "flight_number is required"))
+        
+        val fareFamilyStr = args["fare_family"]?.jsonPrimitive?.content?.uppercase() ?: "FLY"
+        val fareFamily = try {
+            FareFamilyCode.valueOf(fareFamilyStr)
+        } catch (e: Exception) {
+            FareFamilyCode.FLY
+        }
+        
+        val passengersJson = args["passengers"]?.jsonArray
+            ?: return ToolExecutionResult(data = mapOf("error" to "passengers array is required"))
+        
+        val contactEmail = args["contact_email"]?.jsonPrimitive?.content
+            ?: context?.userEmail
+            ?: return ToolExecutionResult(data = mapOf("error" to "contact_email is required"))
+        
+        log.info("Creating booking: flight=$flightNumber, fareFamily=$fareFamily, passengers=${passengersJson.size}")
+        
+        // Parse passengers from JSON
+        val passengers = try {
+            passengersJson.map { passengerElement ->
+                val p = passengerElement.jsonObject
+                val firstName = p["firstName"]?.jsonPrimitive?.content
+                    ?: throw IllegalArgumentException("firstName is required for each passenger")
+                val lastName = p["lastName"]?.jsonPrimitive?.content
+                    ?: throw IllegalArgumentException("lastName is required for each passenger")
+                val dateOfBirthStr = p["dateOfBirth"]?.jsonPrimitive?.content
+                    ?: throw IllegalArgumentException("dateOfBirth is required for each passenger")
+                val genderStr = p["gender"]?.jsonPrimitive?.content?.uppercase() ?: "MALE"
+                val documentNumber = p["documentNumber"]?.jsonPrimitive?.content
+                    ?: throw IllegalArgumentException("documentNumber is required for each passenger")
+                val nationality = p["nationality"]?.jsonPrimitive?.content?.uppercase() ?: "SA"
+                
+                // Parse date of birth
+                val dateOfBirth = LocalDate.parse(dateOfBirthStr)
+                
+                // Determine passenger type based on age
+                val today = Clock.System.now().toLocalDateTime(TimeZone.of("Asia/Riyadh")).date
+                val age = today.year - dateOfBirth.year
+                val passengerType = when {
+                    age < 2 -> PassengerType.INFANT
+                    age < 12 -> PassengerType.CHILD
+                    else -> PassengerType.ADULT
+                }
+                
+                // Determine title based on gender and age
+                val title = when {
+                    passengerType == PassengerType.CHILD || passengerType == PassengerType.INFANT -> 
+                        if (genderStr == "MALE") Title.MSTR else Title.MISS
+                    genderStr == "MALE" -> Title.MR
+                    else -> Title.MS
+                }
+                
+                Passenger(
+                    type = passengerType,
+                    title = title,
+                    firstName = firstName,
+                    lastName = lastName,
+                    nationality = nationality,
+                    dateOfBirth = dateOfBirth,
+                    documentId = documentNumber
+                )
+            }
+        } catch (e: Exception) {
+            log.error("Failed to parse passengers", e)
+            return ToolExecutionResult(data = mapOf("error" to "Invalid passenger data: ${e.message}"))
+        }
+        
+        if (passengers.isEmpty()) {
+            return ToolExecutionResult(data = mapOf("error" to "At least one passenger is required"))
+        }
+        
+        // Create the booking request
+        val totalAmount = Money.sar(500.0) // 500 SAR as default, will be overridden by service
+        val bookingRequest = BookingRequest(
+            searchId = searchId,
+            flightNumber = flightNumber,
+            fareFamily = fareFamily,
+            passengers = passengers,
+            ancillaries = emptyList(),
+            contactEmail = contactEmail,
+            payment = PaymentDetails(
+                cardholderName = passengers.firstOrNull()?.fullName ?: "Card Holder",
+                cardNumberLast4 = "1111",
+                totalAmount = totalAmount
+            )
+        )
+        
+        return try {
+            val confirmation = bookingService.createBooking(bookingRequest, userId)
+            
+            log.info("Booking created successfully: PNR=${confirmation.pnr.value}")
+            
+            ToolExecutionResult(
+                data = mapOf(
+                    "success" to true,
+                    "pnr" to confirmation.pnr.value,
+                    "bookingReference" to confirmation.bookingReference,
+                    "flightNumber" to confirmation.flight.flightNumber,
+                    "origin" to confirmation.flight.origin.value,
+                    "destination" to confirmation.flight.destination.value,
+                    "departureTime" to confirmation.flight.departureTime.toString(),
+                    "passengers" to confirmation.passengers.map { p ->
+                        mapOf("name" to p.fullName, "type" to p.type.name)
+                    },
+                    "totalPaid" to confirmation.totalPaid.amountAsDouble,
+                    "currency" to confirmation.totalPaid.currency.name,
+                    "message" to "Booking confirmed! Your PNR is ${confirmation.pnr.value}"
+                ),
+                uiType = ChatUiType.BOOKING_CONFIRMED
+            )
+        } catch (e: Exception) {
+            log.error("Booking creation failed", e)
+            ToolExecutionResult(
+                data = mapOf(
+                    "success" to false,
+                    "error" to (e.message ?: "Booking creation failed")
+                )
+            )
+        }
     }
 
     private suspend fun getBooking(args: JsonObject): ToolExecutionResult {

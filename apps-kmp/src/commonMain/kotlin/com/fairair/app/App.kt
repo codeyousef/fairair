@@ -1,15 +1,15 @@
 package com.fairair.app
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
@@ -19,7 +19,7 @@ import com.fairair.app.localization.LocalizationProvider
 import com.fairair.app.localization.LocalizationState
 import com.fairair.app.persistence.LocalStorage
 import com.fairair.app.ui.chat.ChatScreenModel
-import com.fairair.app.ui.chat.PilotChatSheet
+import com.fairair.app.ui.chat.PilotFullScreen
 import com.fairair.app.ui.chat.PilotOrb
 import com.fairair.app.ui.screens.search.SearchScreen
 import com.fairair.app.ui.theme.FairairTheme
@@ -37,7 +37,6 @@ fun App() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AppContent() {
     val localStorage = koinInject<LocalStorage>()
@@ -54,8 +53,7 @@ private fun AppContent() {
 
     // Chat state
     val chatUiState by chatScreenModel.uiState.collectAsState()
-    var showChatSheet by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showPilotAI by remember { mutableStateOf(false) }
 
     LocalizationProvider(localizationState = localizationState) {
         val localization = LocalLocalization.current
@@ -74,36 +72,41 @@ private fun AppContent() {
                     SlideTransition(navigator)
                 }
 
-                // Pilot AI Orb - visible on all screens
-                PilotOrb(
-                    onClick = { showChatSheet = true },
-                    isListening = chatUiState.isListening,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                )
+                // Pilot Full Screen AI - with fade animation
+                // AnimatedVisibility handles enter/exit animations AND removes from composition when done
+                AnimatedVisibility(
+                    visible = showPilotAI,
+                    enter = fadeIn(animationSpec = tween(300)),
+                    exit = fadeOut(animationSpec = tween(300))
+                ) {
+                    PilotFullScreen(
+                        visible = true,
+                        uiState = chatUiState,
+                        onSendMessage = { message ->
+                            chatScreenModel.sendMessage(message, currentLocale)
+                        },
+                        onInputChange = { chatScreenModel.updateInputText(it) },
+                        onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
+                        onClearChat = { chatScreenModel.clearChat() },
+                        onDismiss = { showPilotAI = false },
+                        onVoiceClick = { chatScreenModel.toggleListening() },
+                        locale = currentLocale
+                    )
+                }
 
-                // Pilot Chat sheet
-                if (showChatSheet) {
-                    ModalBottomSheet(
-                        onDismissRequest = { showChatSheet = false },
-                        sheetState = sheetState,
-                        dragHandle = null,
-                        containerColor = Color.Transparent
-                    ) {
-                        PilotChatSheet(
-                            uiState = chatUiState,
-                            onSendMessage = { message ->
-                                chatScreenModel.sendMessage(message, currentLocale)
-                            },
-                            onInputChange = { chatScreenModel.updateInputText(it) },
-                            onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
-                            onClearChat = { chatScreenModel.clearChat() },
-                            onDismiss = { showChatSheet = false },
-                            onVoiceClick = { chatScreenModel.toggleListening() },
-                            isRtl = localization.isRtl
-                        )
-                    }
+                // Pilot AI Orb - always visible with animation
+                AnimatedVisibility(
+                    visible = !showPilotAI,
+                    enter = fadeIn(animationSpec = tween(300)),
+                    exit = fadeOut(animationSpec = tween(150))
+                ) {
+                    PilotOrb(
+                        onClick = { showPilotAI = true },
+                        isListening = chatUiState.isListening,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                    )
                 }
             }
         }

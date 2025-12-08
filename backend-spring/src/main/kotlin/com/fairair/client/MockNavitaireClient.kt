@@ -124,6 +124,18 @@ class MockNavitaireClient(
         simulateDelay()
         log.info("Searching flights: ${request.origin} -> ${request.destination} on ${request.departureDate}")
 
+        // Validate route exists
+        val routeMap = getRouteMap()
+        val validDestinations = routeMap.routes[request.origin] ?: emptyList()
+        
+        if (request.destination !in validDestinations) {
+            log.info("Route ${request.origin} -> ${request.destination} does not exist")
+            return FlightResponse(
+                flights = emptyList(),
+                searchId = UUID.randomUUID().toString()
+            )
+        }
+
         val searchId = UUID.randomUUID().toString()
         val flights = generateMockFlights(request)
 

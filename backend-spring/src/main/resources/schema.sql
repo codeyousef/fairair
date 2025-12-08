@@ -312,3 +312,61 @@ CREATE TABLE IF NOT EXISTS agency_bookings (
 
 CREATE INDEX IF NOT EXISTS idx_agency_bookings_agency ON agency_bookings(agency_id);
 CREATE INDEX IF NOT EXISTS idx_agency_bookings_pnr ON agency_bookings(booking_pnr);
+
+-- ============================================================================
+-- USER PROFILE & SAVED TRAVELERS
+-- ============================================================================
+
+-- Saved travelers (family, friends, frequent co-travelers)
+CREATE TABLE IF NOT EXISTS saved_travelers (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    gender VARCHAR(10) NOT NULL, -- MALE, FEMALE
+    nationality VARCHAR(2) NOT NULL, -- ISO 3166-1 alpha-2
+    email VARCHAR(255),
+    phone VARCHAR(20),
+    relationship VARCHAR(50), -- SELF, SPOUSE, CHILD, PARENT, SIBLING, FRIEND, OTHER
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_travelers_user_id ON saved_travelers(user_id);
+
+-- Travel documents (passport, national ID, etc.)
+CREATE TABLE IF NOT EXISTS travel_documents (
+    id VARCHAR(36) PRIMARY KEY,
+    traveler_id VARCHAR(36) NOT NULL,
+    document_type VARCHAR(20) NOT NULL, -- PASSPORT, NATIONAL_ID, VISA
+    document_number VARCHAR(50) NOT NULL,
+    issuing_country VARCHAR(2) NOT NULL, -- ISO 3166-1 alpha-2
+    expiry_date DATE NOT NULL,
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (traveler_id) REFERENCES saved_travelers(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_travel_documents_traveler_id ON travel_documents(traveler_id);
+
+-- Saved payment methods
+CREATE TABLE IF NOT EXISTS saved_payment_methods (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    type VARCHAR(20) NOT NULL, -- CARD, APPLE_PAY
+    card_last_four VARCHAR(4),
+    card_brand VARCHAR(20), -- VISA, MASTERCARD, AMEX
+    card_holder_name VARCHAR(100),
+    expiry_month INT,
+    expiry_year INT,
+    nickname VARCHAR(50),
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    payment_token VARCHAR(255), -- encrypted token for recurring payments
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_payment_methods_user_id ON saved_payment_methods(user_id);

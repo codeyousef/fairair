@@ -129,7 +129,8 @@ fun createScreenModelModule() = module {
     // Saved Bookings Screen Model
     factory {
         SavedBookingsScreenModel(
-            localStorage = get()
+            localStorage = get(),
+            apiClient = get()
         )
     }
 
@@ -159,7 +160,17 @@ fun createScreenModelModule() = module {
     // Singleton to maintain conversation state across screen changes
     single {
         ChatScreenModel(
-            apiClient = get()
+            apiClient = get(),
+            localStorage = get(),
+            bookingFlowState = get()
+        )
+    }
+
+    // Profile Screen Model for saved travelers and payment methods
+    factory {
+        com.fairair.app.ui.screens.profile.ProfileScreenModel(
+            apiClient = get(),
+            localStorage = get()
         )
     }
 }

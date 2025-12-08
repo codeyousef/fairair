@@ -34,4 +34,5 @@ sealed interface AppScreen {
     interface Membership : AppScreen
     interface Help : AppScreen
     interface Contact : AppScreen
+    interface Profile : AppScreen
 }

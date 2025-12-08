@@ -36,6 +36,14 @@ data class ChatContextDto(
     val currentPnr: String? = null,
     /** Current screen name */
     val currentScreen: String? = null,
+    /** User ID if logged in */
+    val userId: String? = null,
+    /** User's email if logged in */
+    val userEmail: String? = null,
+    /** Last search ID for booking context */
+    val lastSearchId: String? = null,
+    /** Last selected flight number */
+    val lastFlightNumber: String? = null,
     /** Any additional context key-value pairs */
     val metadata: Map<String, String> = emptyMap()
 )
@@ -98,7 +106,15 @@ enum class ChatUiType {
 
     /** Display ancillary options (bags, meals) */
     @SerialName("ANCILLARY_OPTIONS")
-    ANCILLARY_OPTIONS
+    ANCILLARY_OPTIONS,
+
+    /** Confirmation that a flight was selected */
+    @SerialName("FLIGHT_SELECTED")
+    FLIGHT_SELECTED,
+
+    /** Confirmation that a booking was created */
+    @SerialName("BOOKING_CONFIRMED")
+    BOOKING_CONFIRMED
 }
 
 // ============================================================================

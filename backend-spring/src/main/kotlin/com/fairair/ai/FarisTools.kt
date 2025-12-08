@@ -40,6 +40,85 @@ object FarisTools {
     )
 
     /**
+     * Select a flight from search results.
+     * This is called when a user clicks on a flight card or says "select flight X".
+     */
+    val selectFlight = ToolDefinition(
+        name = "select_flight",
+        description = """Selects a specific flight from search results. Use ONLY when user first picks a flight (clicks card or says "I'll take F3100"). 
+DO NOT use this when user confirms a booking - use create_booking instead.
+After selection, get passenger details with get_saved_travelers before asking for confirmation.""",
+        parameters = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "flight_number" to mapOf(
+                    "type" to "string",
+                    "description" to "The flight number to select (e.g., F3100, F3101)"
+                )
+            ),
+            "required" to listOf("flight_number")
+        )
+    )
+
+    /**
+     * Get the user's saved travelers for booking.
+     */
+    val getSavedTravelers = ToolDefinition(
+        name = "get_saved_travelers",
+        description = "Retrieves the user's saved travelers (family members, frequent travelers). Use this to show the user their saved passengers before booking. If user is not logged in, this will return empty.",
+        parameters = mapOf(
+            "type" to "object",
+            "properties" to mapOf<String, Any>(),
+            "required" to listOf<String>()
+        )
+    )
+
+    /**
+     * Create a booking for the selected flight.
+     */
+    val createBooking = ToolDefinition(
+        name = "create_booking",
+        description = """Creates an actual booking and returns a PNR confirmation. 
+WHEN TO USE: Call this IMMEDIATELY when the user says "yes", "ok", "confirm", "book it", "proceed" after you showed them a booking summary with passenger details.
+REQUIRED: You must have firstName, lastName, dateOfBirth, documentNumber for each passenger from get_saved_travelers.
+DO NOT call select_flight or search_flights when user confirms - call create_booking instead.""",
+        parameters = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "flight_number" to mapOf(
+                    "type" to "string",
+                    "description" to "The flight number to book (e.g., F3100)"
+                ),
+                "fare_family" to mapOf(
+                    "type" to "string",
+                    "description" to "Fare class: 'FLY', 'FLY_PLUS', or 'FLY_MAX'. Default to 'FLY' if not specified."
+                ),
+                "passengers" to mapOf(
+                    "type" to "array",
+                    "description" to "List of passengers - MUST include all required fields from get_saved_travelers",
+                    "items" to mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "firstName" to mapOf("type" to "string", "description" to "First name (REQUIRED)"),
+                            "lastName" to mapOf("type" to "string", "description" to "Last name (REQUIRED)"),
+                            "dateOfBirth" to mapOf("type" to "string", "description" to "Date of birth in YYYY-MM-DD format (REQUIRED)"),
+                            "gender" to mapOf("type" to "string", "description" to "MALE or FEMALE (REQUIRED)"),
+                            "documentNumber" to mapOf("type" to "string", "description" to "Passport/ID number (REQUIRED)"),
+                            "nationality" to mapOf("type" to "string", "description" to "2-letter country code e.g. SA, AE (REQUIRED)")
+                        ),
+                        "required" to listOf("firstName", "lastName", "dateOfBirth", "gender", "documentNumber", "nationality")
+                    )
+                ),
+                "contact_email" to mapOf(
+                    "type" to "string",
+                    "description" to "Email for booking confirmation (optional, uses user's email if not provided)"
+                )
+            ),
+            "required" to listOf("flight_number", "passengers")
+        )
+    )
+
+    /**
      * Retrieve an existing booking.
      */
     val getBooking = ToolDefinition(
@@ -298,6 +377,9 @@ object FarisTools {
      */
     val allTools: List<ToolDefinition> = listOf(
         searchFlights,
+        selectFlight,
+        getSavedTravelers,
+        createBooking,
         getBooking,
         cancelSpecificPassenger,
         calculateChangeFees,

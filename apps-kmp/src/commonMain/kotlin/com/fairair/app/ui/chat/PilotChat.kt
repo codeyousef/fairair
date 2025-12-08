@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -39,18 +38,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.fairair.app.ui.theme.NotoKufiArabicFontFamily
-import com.fairair.app.ui.theme.SpaceGroteskFontFamily
 import com.fairair.contract.dto.ChatUiType
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.contentOrNull
 
 // Pilot brand colors - using airline theme
 private val PilotPrimaryColor = Color(0xFF0EA5E9) // Sky blue
@@ -59,14 +48,6 @@ private val PilotAccentColor = Color(0xFF22D3EE) // Cyan
 private val PilotGradient = Brush.radialGradient(
     colors = listOf(PilotAccentColor, PilotPrimaryColor, PilotSecondaryColor)
 )
-
-/**
- * Gets the appropriate font family based on RTL mode.
- */
-@Composable
-private fun chatFontFamily(isRtl: Boolean): FontFamily {
-    return if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
-}
 
 // =============================================================================
 // PILOT ORB - The Floating Action Button
@@ -187,12 +168,12 @@ fun PilotOrb(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // Use simple text - F for Faris, mic icon when listening
-                Text(
-                    text = if (isListening) "M" else "F",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                // Airplane icon
+                Icon(
+                    imageVector = if (isListening) Icons.Default.Settings else Icons.Default.Star,
+                    contentDescription = "Pilot Assistant",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -200,13 +181,203 @@ fun PilotOrb(
 }
 
 // =============================================================================
-// PILOT CHAT SHEET - Wrapper for compatibility
+// PILOT FULL SCREEN - Full-screen AI interface with fade animation
 // =============================================================================
 
 /**
- * Wrapper function that matches the FarisChatSheet API for easy migration.
- * Delegates to PilotOverlay with the new voice-first design.
+ * Full-screen animated Pilot AI interface.
+ * Features:
+ * - Fade in/out animation
+ * - Close button in header
+ * - Voice-first design with polymorphic UI cards
+ * - Text is spoken (TTS) but not displayed when UI components are present
  */
+@Composable
+fun PilotFullScreen(
+    visible: Boolean,
+    uiState: ChatUiState,
+    onSendMessage: (String) -> Unit,
+    onInputChange: (String) -> Unit,
+    onSuggestionTapped: (String) -> Unit,
+    onClearChat: () -> Unit,
+    onDismiss: () -> Unit,
+    onVoiceClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    locale: String = "en-US"
+) {
+    val isRtl = locale.startsWith("ar")
+    val listState = rememberLazyListState()
+
+    // Scroll to bottom when new messages arrive
+    LaunchedEffect(uiState.messages.size) {
+        if (uiState.messages.isNotEmpty()) {
+            listState.animateScrollToItem(uiState.messages.size - 1)
+        }
+    }
+
+    // Note: Animation is handled by the parent via AnimatedVisibility.
+    // This function renders the full-screen content directly.
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.background,
+                            PilotPrimaryColor.copy(alpha = 0.05f)
+                        )
+                    )
+                )
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header with close button
+                PilotFullScreenHeader(
+                    onDismiss = onDismiss,
+                    onClearChat = onClearChat,
+                    isRtl = isRtl
+                )
+
+                    // Content area - either polymorphic cards or welcome
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        if (uiState.messages.isEmpty()) {
+                            PilotWelcome(isRtl = isRtl)
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(vertical = 16.dp)
+                            ) {
+                                items(uiState.messages, key = { it.id }) { message ->
+                                    PolymorphicChatItem(
+                                        message = message,
+                                        isRtl = isRtl,
+                                        hideTextWhenUiPresent = true
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Quick suggestions
+                    val lastAssistantMessage = uiState.messages.lastOrNull { !it.isFromUser }
+                    if (lastAssistantMessage?.suggestions?.isNotEmpty() == true) {
+                        QuickSuggestions(
+                            suggestions = lastAssistantMessage.suggestions,
+                            onSuggestionTapped = onSuggestionTapped,
+                            isRtl = isRtl
+                        )
+                    }
+
+                    // Voice-first input bar
+                    VoiceInputBar(
+                        inputText = uiState.inputText,
+                        onInputChange = onInputChange,
+                        onSendMessage = { onSendMessage(uiState.inputText) },
+                        onMicClick = onVoiceClick,
+                        isListening = uiState.isListening,
+                        isLoading = uiState.isLoading,
+                        isRtl = isRtl
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Header for full-screen mode with prominent close button.
+ */
+@Composable
+private fun PilotFullScreenHeader(
+    onDismiss: () -> Unit,
+    onClearChat: () -> Unit,
+    isRtl: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Close button
+        IconButton(onClick = onDismiss) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        // Pilot avatar and title
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Pilot avatar
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(PilotAccentColor, PilotPrimaryColor, PilotSecondaryColor)
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column {
+                Text(
+                    text = "Pilot",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (isRtl) "مساعدك الذكي" else "Your AI Assistant",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        // Clear chat button
+        IconButton(onClick = onClearChat) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Clear chat",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    )
+}
+
+// Legacy wrapper for compatibility
 @Composable
 fun PilotChatSheet(
     uiState: ChatUiState,
@@ -217,7 +388,7 @@ fun PilotChatSheet(
     onDismiss: () -> Unit,
     onVoiceClick: () -> Unit = {},
     modifier: Modifier = Modifier,
-    isRtl: Boolean = false
+    locale: String = "en-US"
 ) {
     PilotOverlay(
         uiState = uiState,
@@ -229,7 +400,7 @@ fun PilotChatSheet(
         onClearChat = onClearChat,
         onDismiss = onDismiss,
         modifier = modifier,
-        isRtl = isRtl
+        locale = locale
     )
 }
 
@@ -252,8 +423,9 @@ fun PilotOverlay(
     onClearChat: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    isRtl: Boolean = false
+    locale: String = "en-US"
 ) {
+    val isRtl = locale.startsWith("ar")
     val listState = rememberLazyListState()
 
     // Scroll to bottom when new messages arrive
@@ -316,25 +488,6 @@ fun PilotOverlay(
                     isRtl = isRtl
                 )
             }
-            
-            // Show interim transcription while listening
-            if (isListening && uiState.interimText.isNotBlank()) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    color = PilotPrimaryColor.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = uiState.interimText,
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
-                }
-            }
 
             // Voice-first input bar
             VoiceInputBar(
@@ -343,10 +496,8 @@ fun PilotOverlay(
                 onSendMessage = { onSendMessage(uiState.inputText) },
                 onMicClick = onMicClick,
                 isListening = isListening,
-                isSpeaking = uiState.isSpeaking,
                 isLoading = uiState.isLoading,
-                isRtl = isRtl,
-                voiceError = uiState.voiceError
+                isRtl = isRtl
             )
         }
     }
@@ -358,7 +509,6 @@ private fun PilotHeader(
     onClearChat: () -> Unit,
     isRtl: Boolean
 ) {
-    val fontFamily = chatFontFamily(isRtl)
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -394,11 +544,11 @@ private fun PilotHeader(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "F",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
@@ -406,19 +556,17 @@ private fun PilotHeader(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isRtl) "فارس" else "Faris",
+                    text = "Pilot",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = fontFamily
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = if (isRtl) "مساعدك للسفر" else "Your travel assistant",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = fontFamily
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             IconButton(onClick = onClearChat) {
                 Icon(
                     imageVector = Icons.Default.Refresh,
@@ -442,7 +590,6 @@ private fun PilotHeader(
 
 @Composable
 private fun PilotWelcome(isRtl: Boolean) {
-    val fontFamily = chatFontFamily(isRtl)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -492,11 +639,11 @@ private fun PilotWelcome(isRtl: Boolean) {
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "F",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
@@ -504,11 +651,10 @@ private fun PilotWelcome(isRtl: Boolean) {
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = if (isRtl) "هلا! أنا فارس" else "Hey! I'm Faris",
+            text = if (isRtl) "هلا! أنا Pilot" else "Hey! I'm Pilot",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            fontFamily = fontFamily
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -521,8 +667,7 @@ private fun PilotWelcome(isRtl: Boolean) {
             },
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            fontFamily = fontFamily
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -547,8 +692,7 @@ private fun PilotWelcome(isRtl: Boolean) {
                     modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    fontFamily = fontFamily
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -562,24 +706,21 @@ private fun PilotWelcome(isRtl: Boolean) {
 @Composable
 private fun PolymorphicChatItem(
     message: ChatMessage,
-    isRtl: Boolean
+    isRtl: Boolean,
+    hideTextWhenUiPresent: Boolean = false
 ) {
-    // Debug logging
-    println("PolymorphicChatItem: isFromUser=${message.isFromUser}, isLoading=${message.isLoading}, uiType=${message.uiType}")
-    
     CompositionLocalProvider(
         LocalLayoutDirection provides if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
     ) {
-        val fontFamily = chatFontFamily(isRtl)
         when {
             message.isLoading -> LoadingIndicator()
-            message.isFromUser -> UserBubble(message.text, fontFamily)
+            message.isFromUser -> UserBubble(message.text)
             message.uiType != null -> {
-                println("PolymorphicChatItem: Rendering card for uiType=${message.uiType}")
                 // Render specialized UI based on type
+                // When hideTextWhenUiPresent is true, only show the UI card (text is for TTS only)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (message.text.isNotBlank()) {
-                        AssistantBubble(message.text, fontFamily)
+                    if (!hideTextWhenUiPresent && message.text.isNotBlank()) {
+                        AssistantBubble(message.text)
                     }
                     PolymorphicCard(
                         uiType = message.uiType,
@@ -588,13 +729,13 @@ private fun PolymorphicChatItem(
                     )
                 }
             }
-            else -> AssistantBubble(message.text, fontFamily)
+            else -> AssistantBubble(message.text)
         }
     }
 }
 
 @Composable
-private fun UserBubble(text: String, fontFamily: FontFamily) {
+private fun UserBubble(text: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
@@ -608,15 +749,14 @@ private fun UserBubble(text: String, fontFamily: FontFamily) {
                 text = text,
                 modifier = Modifier.padding(12.dp),
                 color = Color.White,
-                style = MaterialTheme.typography.bodyMedium,
-                fontFamily = fontFamily
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
 }
 
 @Composable
-private fun AssistantBubble(text: String, fontFamily: FontFamily) {
+private fun AssistantBubble(text: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
@@ -629,8 +769,7 @@ private fun AssistantBubble(text: String, fontFamily: FontFamily) {
             Text(
                 text = text,
                 modifier = Modifier.padding(12.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                fontFamily = fontFamily
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
@@ -711,38 +850,18 @@ private fun PolymorphicCard(
 
 @Composable
 private fun FlightCarouselCard(uiData: String?, isRtl: Boolean) {
-    // Parse flight data from uiData JSON
-    val flightPayload = remember(uiData) {
-        uiData?.let { parseFlightListData(it) }
-    }
-    
-    // If parsing fails, show a placeholder
-    if (flightPayload == null || flightPayload.flights.isEmpty()) {
-        Text(
-            text = if (isRtl) "لا توجد رحلات متاحة" else "No flights available",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        return
-    }
+    // Mock flight data for demo - in production, parse uiData JSON
+    val flights = listOf(
+        Triple("FA 101", "09:00", "SAR 450"),
+        Triple("FA 203", "14:30", "SAR 380"),
+        Triple("FA 305", "19:15", "SAR 520")
+    )
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Show route info header
         Text(
-            text = if (isRtl) {
-                "الرحلات المتاحة من ${flightPayload.origin} إلى ${flightPayload.destination}"
-            } else {
-                "Flights from ${flightPayload.origin} to ${flightPayload.destination}"
-            },
+            text = if (isRtl) "الرحلات المتاحة" else "Available Flights",
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        
-        Text(
-            text = flightPayload.date,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
         )
         
@@ -750,89 +869,15 @@ private fun FlightCarouselCard(uiData: String?, isRtl: Boolean) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(end = 16.dp)
         ) {
-            items(flightPayload.flights) { flight ->
+            items(flights) { (flightNum, time, price) ->
                 FlightOptionCard(
-                    flightNumber = flight.flightNumber,
-                    departureTime = flight.departureTime,
-                    price = "${flight.currency} ${flight.lowestPrice.toInt()}",
+                    flightNumber = flightNum,
+                    departureTime = time,
+                    price = price,
                     onClick = { /* Select flight */ }
                 )
             }
         }
-    }
-}
-
-/**
- * Data class for parsed flight list UI data
- */
-private data class FlightListUiData(
-    val origin: String,
-    val destination: String,
-    val date: String,
-    val flights: List<FlightItemData>
-)
-
-private data class FlightItemData(
-    val flightNumber: String,
-    val departureTime: String,
-    val arrivalTime: String,
-    val duration: String,
-    val lowestPrice: Double,
-    val currency: String
-)
-
-/**
- * Parse the uiData JSON string into FlightListUiData
- */
-private fun parseFlightListData(uiData: String): FlightListUiData? {
-    return try {
-        println("Parsing flight list data: ${uiData.take(100)}...")
-        val json = Json { ignoreUnknownKeys = true }
-        val jsonObj = json.parseToJsonElement(uiData).jsonObject
-        
-        val origin = jsonObj["origin"]?.jsonPrimitive?.contentOrNull ?: ""
-        val destination = jsonObj["destination"]?.jsonPrimitive?.contentOrNull ?: ""
-        val date = jsonObj["date"]?.jsonPrimitive?.contentOrNull ?: ""
-        
-        val flights = jsonObj["flights"]?.jsonArray?.mapNotNull { flightElement ->
-            val flight = flightElement.jsonObject
-            FlightItemData(
-                flightNumber = flight["flightNumber"]?.jsonPrimitive?.contentOrNull ?: "",
-                departureTime = formatTimeFromIso(flight["departureTime"]?.jsonPrimitive?.contentOrNull ?: ""),
-                arrivalTime = formatTimeFromIso(flight["arrivalTime"]?.jsonPrimitive?.contentOrNull ?: ""),
-                duration = flight["duration"]?.jsonPrimitive?.contentOrNull ?: "",
-                lowestPrice = flight["lowestPrice"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-                currency = flight["currency"]?.jsonPrimitive?.contentOrNull ?: "SAR"
-            )
-        } ?: emptyList()
-        
-        println("Parsed ${flights.size} flights from $origin to $destination")
-        FlightListUiData(origin, destination, date, flights)
-    } catch (e: Exception) {
-        println("Failed to parse flight list data: ${e.message}")
-        null
-    }
-}
-
-/**
- * Format ISO datetime to readable time (e.g., "2025-12-08T03:00:00Z" -> "3:00 AM")
- */
-private fun formatTimeFromIso(isoDateTime: String): String {
-    return try {
-        // Extract time portion: "2025-12-08T03:00:00Z" -> "03:00"
-        val timePart = isoDateTime.substringAfter("T").substringBefore(":")
-        val hour = timePart.toIntOrNull() ?: return isoDateTime
-        val minutes = isoDateTime.substringAfter("T").substringAfter(":").substringBefore(":").toIntOrNull() ?: 0
-        
-        val amPm = if (hour < 12) "AM" else "PM"
-        val hour12 = when {
-            hour == 0 -> 12
-            hour > 12 -> hour - 12
-            else -> hour
-        }
-        "$hour12:${minutes.toString().padStart(2, '0')} $amPm"
-    } catch (e: Exception) {
-        isoDateTime
     }
 }
 
@@ -888,51 +933,8 @@ private fun FlightOptionCard(
     }
 }
 
-/**
- * Data class for parsed seat map UI data
- */
-private data class SeatMapUiData(
-    val pnr: String,
-    val availableSeats: List<String>,
-    val windowSeats: List<String>,
-    val aisleSeats: List<String>
-)
-
-/**
- * Parse the uiData JSON string into SeatMapUiData
- */
-private fun parseSeatMapData(uiData: String): SeatMapUiData? {
-    return try {
-        val json = Json { ignoreUnknownKeys = true }
-        val jsonObj = json.parseToJsonElement(uiData).jsonObject
-        
-        val pnr = jsonObj["pnr"]?.jsonPrimitive?.contentOrNull ?: ""
-        val availableSeats = jsonObj["availableSeats"]?.jsonArray?.mapNotNull { 
-            it.jsonPrimitive.contentOrNull 
-        } ?: emptyList()
-        val windowSeats = jsonObj["windowSeats"]?.jsonArray?.mapNotNull { 
-            it.jsonPrimitive.contentOrNull 
-        } ?: emptyList()
-        val aisleSeats = jsonObj["aisleSeats"]?.jsonArray?.mapNotNull { 
-            it.jsonPrimitive.contentOrNull 
-        } ?: emptyList()
-        
-        SeatMapUiData(pnr, availableSeats, windowSeats, aisleSeats)
-    } catch (e: Exception) {
-        null
-    }
-}
-
 @Composable
 private fun SeatMapCard(uiData: String?, isRtl: Boolean) {
-    // Parse seat map data from uiData JSON
-    val seatMapData = remember(uiData) {
-        uiData?.let { parseSeatMapData(it) }
-    }
-    
-    // Use parsed data or empty fallback
-    val availableSeats = seatMapData?.availableSeats ?: emptyList()
-    
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -943,16 +945,6 @@ private fun SeatMapCard(uiData: String?, isRtl: Boolean) {
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Show PNR if available
-            seatMapData?.pnr?.takeIf { it.isNotBlank() }?.let { pnr ->
-                Text(
-                    text = if (isRtl) "حجز: $pnr" else "Booking: $pnr",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            
             Text(
                 text = if (isRtl) "اختر مقعدك" else "Select Your Seat",
                 style = MaterialTheme.typography.titleMedium,
@@ -967,14 +959,13 @@ private fun SeatMapCard(uiData: String?, isRtl: Boolean) {
             ) {
                 // Left side (A, B, C)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    (10..13).forEach { row ->
+                    repeat(4) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf("A", "B", "C").forEach { col ->
-                                val seatLabel = "$row$col"
                                 SeatIcon(
-                                    label = seatLabel,
-                                    isAvailable = availableSeats.contains(seatLabel),
-                                    isHighlighted = false // Could highlight selected seat
+                                    label = "${row + 10}$col",
+                                    isAvailable = (row + col.hashCode()) % 3 != 0,
+                                    isHighlighted = row == 2 && col == "C"
                                 )
                             }
                         }
@@ -986,14 +977,13 @@ private fun SeatMapCard(uiData: String?, isRtl: Boolean) {
                 
                 // Right side (D, E, F)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    (10..13).forEach { row ->
+                    repeat(4) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf("D", "E", "F").forEach { col ->
-                                val seatLabel = "$row$col"
                                 SeatIcon(
-                                    label = seatLabel,
-                                    isAvailable = availableSeats.contains(seatLabel),
-                                    isHighlighted = false
+                                    label = "${row + 10}$col",
+                                    isAvailable = (row + col.hashCode()) % 2 != 0,
+                                    isHighlighted = row == 2 && col == "F"
                                 )
                             }
                         }
@@ -1059,97 +1049,8 @@ private fun LegendItem(color: Color, label: String) {
     }
 }
 
-/**
- * Data class for parsed boarding pass UI data
- */
-private data class BoardingPassUiData(
-    val pnr: String,
-    val passengerName: String,
-    val flightNumber: String,
-    val origin: String,
-    val destination: String,
-    val departureTime: String,
-    val gate: String,
-    val seat: String,
-    val boardingGroup: String,
-    val qrCode: String
-)
-
-/**
- * Parse the uiData JSON string into BoardingPassUiData
- */
-private fun parseBoardingPassData(uiData: String): BoardingPassUiData? {
-    return try {
-        val json = Json { ignoreUnknownKeys = true }
-        val jsonObj = json.parseToJsonElement(uiData).jsonObject
-        
-        BoardingPassUiData(
-            pnr = jsonObj["pnr"]?.jsonPrimitive?.contentOrNull ?: "",
-            passengerName = jsonObj["passengerName"]?.jsonPrimitive?.contentOrNull ?: "",
-            flightNumber = jsonObj["flightNumber"]?.jsonPrimitive?.contentOrNull ?: "",
-            origin = jsonObj["origin"]?.jsonPrimitive?.contentOrNull ?: "",
-            destination = jsonObj["destination"]?.jsonPrimitive?.contentOrNull ?: "",
-            departureTime = jsonObj["departureTime"]?.jsonPrimitive?.contentOrNull ?: "",
-            gate = jsonObj["gate"]?.jsonPrimitive?.contentOrNull ?: "",
-            seat = jsonObj["seat"]?.jsonPrimitive?.contentOrNull ?: "",
-            boardingGroup = jsonObj["boardingGroup"]?.jsonPrimitive?.contentOrNull ?: "",
-            qrCode = jsonObj["qrCode"]?.jsonPrimitive?.contentOrNull ?: ""
-        )
-    } catch (e: Exception) {
-        null
-    }
-}
-
-/**
- * Get city name from airport code
- */
-private fun getCityName(code: String, isRtl: Boolean): String {
-    return when (code.uppercase()) {
-        "RUH" -> if (isRtl) "الرياض" else "Riyadh"
-        "JED" -> if (isRtl) "جدة" else "Jeddah"
-        "DMM" -> if (isRtl) "الدمام" else "Dammam"
-        "MED" -> if (isRtl) "المدينة المنورة" else "Medina"
-        "ABH" -> if (isRtl) "أبها" else "Abha"
-        "GIZ" -> if (isRtl) "جيزان" else "Jizan"
-        "TUU" -> if (isRtl) "تبوك" else "Tabuk"
-        "ELQ" -> if (isRtl) "القصيم" else "Qassim"
-        "AHB" -> if (isRtl) "أبها" else "Abha"
-        else -> code
-    }
-}
-
-/**
- * Extract time from ISO datetime string
- */
-private fun extractTime(isoDateTime: String): String {
-    return try {
-        // Format: 2024-12-08T14:30:00 -> 14:30
-        if (isoDateTime.contains("T")) {
-            isoDateTime.substringAfter("T").take(5)
-        } else {
-            isoDateTime.take(5)
-        }
-    } catch (e: Exception) {
-        isoDateTime
-    }
-}
-
 @Composable
 private fun BoardingPassCard(uiData: String?, isRtl: Boolean) {
-    // Parse boarding pass data from uiData JSON
-    val boardingPass = remember(uiData) {
-        uiData?.let { parseBoardingPassData(it) }
-    }
-    
-    // Use parsed data or fallback values
-    val origin = boardingPass?.origin ?: "RUH"
-    val destination = boardingPass?.destination ?: "JED"
-    val flightNumber = boardingPass?.flightNumber ?: "---"
-    val gate = boardingPass?.gate ?: "--"
-    val seat = boardingPass?.seat ?: "--"
-    val departureTime = boardingPass?.departureTime?.let { extractTime(it) } ?: "--:--"
-    val passengerName = boardingPass?.passengerName ?: ""
-    
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -1168,21 +1069,12 @@ private fun BoardingPassCard(uiData: String?, isRtl: Boolean) {
                     )
                     .padding(16.dp)
             ) {
-                Column {
-                    Text(
-                        text = if (isRtl) "بطاقة الصعود" else "BOARDING PASS",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (passengerName.isNotBlank()) {
-                        Text(
-                            text = passengerName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                    }
-                }
+                Text(
+                    text = if (isRtl) "بطاقة الصعود" else "BOARDING PASS",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
             }
             
             // Content
@@ -1193,33 +1085,32 @@ private fun BoardingPassCard(uiData: String?, isRtl: Boolean) {
                 ) {
                     Column {
                         Text(
-                            text = origin,
+                            text = "RUH",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = getCityName(origin, isRtl),
+                            text = if (isRtl) "الرياض" else "Riyadh",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     
-                    Text(
-                        text = "->",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PilotPrimaryColor,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = PilotPrimaryColor,
+                        modifier = Modifier.size(32.dp)
                     )
                     
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = destination,
+                            text = "JED",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = getCityName(destination, isRtl),
+                            text = if (isRtl) "جدة" else "Jeddah",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1236,19 +1127,19 @@ private fun BoardingPassCard(uiData: String?, isRtl: Boolean) {
                 ) {
                     InfoColumn(
                         label = if (isRtl) "الرحلة" else "FLIGHT",
-                        value = flightNumber
+                        value = "FA 203"
                     )
                     InfoColumn(
                         label = if (isRtl) "البوابة" else "GATE",
-                        value = gate
+                        value = "A12"
                     )
                     InfoColumn(
                         label = if (isRtl) "المقعد" else "SEAT",
-                        value = seat
+                        value = "12F"
                     )
                     InfoColumn(
                         label = if (isRtl) "الإقلاع" else "DEPART",
-                        value = departureTime
+                        value = "14:30"
                     )
                 }
                 
@@ -1266,7 +1157,7 @@ private fun BoardingPassCard(uiData: String?, isRtl: Boolean) {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = boardingPass?.qrCode ?: "QR CODE",
+                        text = "QR CODE",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1292,61 +1183,8 @@ private fun InfoColumn(label: String, value: String) {
     }
 }
 
-/**
- * Data class for parsed flight comparison UI data
- */
-private data class FlightComparisonUiData(
-    val pnr: String,
-    val currentFlight: String,
-    val newFlight: String,
-    val changeFee: Double,
-    val priceDifference: Double,
-    val totalDue: Double,
-    val currency: String
-)
-
-/**
- * Parse the uiData JSON string into FlightComparisonUiData
- */
-private fun parseFlightComparisonData(uiData: String): FlightComparisonUiData? {
-    return try {
-        val json = Json { ignoreUnknownKeys = true }
-        val jsonObj = json.parseToJsonElement(uiData).jsonObject
-        
-        FlightComparisonUiData(
-            pnr = jsonObj["pnr"]?.jsonPrimitive?.contentOrNull ?: "",
-            currentFlight = jsonObj["currentFlight"]?.jsonPrimitive?.contentOrNull ?: "",
-            newFlight = jsonObj["newFlight"]?.jsonPrimitive?.contentOrNull ?: "",
-            changeFee = jsonObj["changeFee"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-            priceDifference = jsonObj["priceDifference"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-            totalDue = jsonObj["totalDue"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-            currency = jsonObj["currency"]?.jsonPrimitive?.contentOrNull ?: "SAR"
-        )
-    } catch (e: Exception) {
-        null
-    }
-}
-
 @Composable
 private fun ComparisonCard(uiData: String?, isRtl: Boolean) {
-    // Parse flight comparison data from uiData JSON
-    val comparison = remember(uiData) {
-        uiData?.let { parseFlightComparisonData(it) }
-    }
-    
-    // Use parsed data or fallback values
-    val currentFlight = comparison?.currentFlight ?: "---"
-    val newFlight = comparison?.newFlight ?: "---"
-    val totalDue = comparison?.totalDue ?: 0.0
-    val currency = comparison?.currency ?: "SAR"
-    
-    // Format the total due with sign
-    val totalDueText = if (totalDue >= 0) {
-        "+$currency ${totalDue.toInt()}"
-    } else {
-        "$currency ${totalDue.toInt()}"
-    }
-    
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -1373,26 +1211,27 @@ private fun ComparisonCard(uiData: String?, isRtl: Boolean) {
                 ComparisonColumn(
                     modifier = Modifier.weight(1f),
                     title = if (isRtl) "الحالي" else "Current",
-                    flightNumber = currentFlight,
-                    time = "", // Time not provided in backend response
+                    flightNumber = "FA 101",
+                    time = "09:00",
                     isOld = true
                 )
                 
                 // Arrow
-                Text(
-                    text = "->",
-                    fontSize = 24.sp,
-                    color = PilotPrimaryColor,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.CenterVertically)
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = PilotPrimaryColor,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.CenterVertically)
                 )
                 
                 // New flight
                 ComparisonColumn(
                     modifier = Modifier.weight(1f),
                     title = if (isRtl) "الجديد" else "New",
-                    flightNumber = newFlight,
-                    time = "",
+                    flightNumber = "FA 203",
+                    time = "14:30",
                     isOld = false
                 )
             }
@@ -1413,11 +1252,11 @@ private fun ComparisonCard(uiData: String?, isRtl: Boolean) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (isRtl) "المبلغ المستحق" else "Total Due",
+                        text = if (isRtl) "الفرق" else "Difference",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = totalDueText,
+                        text = "+SAR 70",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = PilotPrimaryColor
@@ -1459,105 +1298,18 @@ private fun ComparisonColumn(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            if (time.isNotBlank()) {
-                Text(
-                    text = time,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isOld) MaterialTheme.colorScheme.onSurfaceVariant else PilotPrimaryColor
-                )
-            }
-        }
-    }
-}
-
-/**
- * Data class for parsed booking summary UI data
- */
-private data class BookingSummaryUiData(
-    val pnr: String,
-    val flightNumber: String,
-    val origin: String,
-    val destination: String,
-    val departureTime: String,
-    val passengers: List<PassengerUiData>,
-    val totalPaid: Double,
-    val currency: String
-)
-
-private data class PassengerUiData(
-    val name: String,
-    val type: String
-)
-
-/**
- * Parse the uiData JSON string into BookingSummaryUiData
- */
-private fun parseBookingSummaryData(uiData: String): BookingSummaryUiData? {
-    return try {
-        val json = Json { ignoreUnknownKeys = true }
-        val jsonObj = json.parseToJsonElement(uiData).jsonObject
-        
-        val passengers = jsonObj["passengers"]?.jsonArray?.mapNotNull { passengerElement ->
-            val passenger = passengerElement.jsonObject
-            PassengerUiData(
-                name = passenger["name"]?.jsonPrimitive?.contentOrNull ?: "",
-                type = passenger["type"]?.jsonPrimitive?.contentOrNull ?: "ADULT"
+            Text(
+                text = time,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (isOld) MaterialTheme.colorScheme.onSurfaceVariant else PilotPrimaryColor
             )
-        } ?: emptyList()
-        
-        BookingSummaryUiData(
-            pnr = jsonObj["pnr"]?.jsonPrimitive?.contentOrNull ?: "",
-            flightNumber = jsonObj["flightNumber"]?.jsonPrimitive?.contentOrNull ?: "",
-            origin = jsonObj["origin"]?.jsonPrimitive?.contentOrNull ?: "",
-            destination = jsonObj["destination"]?.jsonPrimitive?.contentOrNull ?: "",
-            departureTime = jsonObj["departureTime"]?.jsonPrimitive?.contentOrNull ?: "",
-            passengers = passengers,
-            totalPaid = jsonObj["totalPaid"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-            currency = jsonObj["currency"]?.jsonPrimitive?.contentOrNull ?: "SAR"
-        )
-    } catch (e: Exception) {
-        null
+        }
     }
 }
 
 @Composable
 private fun BookingSummaryCard(uiData: String?, isRtl: Boolean) {
-    // Parse booking summary data from uiData JSON
-    val booking = remember(uiData) {
-        uiData?.let { parseBookingSummaryData(it) }
-    }
-    
-    // Use parsed data or fallback values
-    val pnr = booking?.pnr ?: "---"
-    val flightNumber = booking?.flightNumber ?: "---"
-    val origin = booking?.origin ?: "---"
-    val destination = booking?.destination ?: "---"
-    val departureTime = booking?.departureTime?.let { extractTime(it) } ?: "--:--"
-    val passengers = booking?.passengers ?: emptyList()
-    val totalPaid = booking?.totalPaid ?: 0.0
-    val currency = booking?.currency ?: "SAR"
-    
-    // Format passenger count
-    val passengerText = if (passengers.isNotEmpty()) {
-        val adultCount = passengers.count { it.type.uppercase() == "ADULT" }
-        val childCount = passengers.count { it.type.uppercase() == "CHILD" }
-        val infantCount = passengers.count { it.type.uppercase() == "INFANT" }
-        buildString {
-            if (adultCount > 0) append(if (isRtl) "$adultCount بالغ" else "$adultCount Adult${if (adultCount > 1) "s" else ""}")
-            if (childCount > 0) {
-                if (isNotEmpty()) append(", ")
-                append(if (isRtl) "$childCount طفل" else "$childCount Child${if (childCount > 1) "ren" else ""}")
-            }
-            if (infantCount > 0) {
-                if (isNotEmpty()) append(", ")
-                append(if (isRtl) "$infantCount رضيع" else "$infantCount Infant${if (infantCount > 1) "s" else ""}")
-            }
-        }
-    } else {
-        if (isRtl) "---" else "---"
-    }
-    
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -1583,7 +1335,7 @@ private fun BookingSummaryCard(uiData: String?, isRtl: Boolean) {
                     color = PilotAccentColor.copy(alpha = 0.2f)
                 ) {
                     Text(
-                        text = pnr,
+                        text = "ABC123",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelMedium,
                         color = PilotPrimaryColor,
@@ -1596,26 +1348,20 @@ private fun BookingSummaryCard(uiData: String?, isRtl: Boolean) {
             
             SummaryRow(
                 label = if (isRtl) "الرحلة" else "Flight",
-                value = "$flightNumber • $departureTime"
+                value = "FA 203 • 14:30"
             )
             SummaryRow(
                 label = if (isRtl) "المسار" else "Route",
-                value = "$origin - $destination"
+                value = "RUH → JED"
             )
             SummaryRow(
                 label = if (isRtl) "المسافرون" else "Passengers",
-                value = passengerText
+                value = "2 Adults"
             )
-            
-            // Show passenger names if available
-            passengers.takeIf { it.isNotEmpty() }?.forEach { passenger ->
-                Text(
-                    text = "  • ${passenger.name}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 8.dp, top = 2.dp)
-                )
-            }
+            SummaryRow(
+                label = if (isRtl) "المقاعد" else "Seats",
+                value = "12E, 12F"
+            )
             
             Spacer(modifier = Modifier.height(8.dp))
             HorizontalDivider()
@@ -1631,7 +1377,7 @@ private fun BookingSummaryCard(uiData: String?, isRtl: Boolean) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "$currency ${totalPaid.toInt()}",
+                    text = "SAR 760",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = PilotPrimaryColor
@@ -1672,7 +1418,6 @@ private fun QuickSuggestions(
     onSuggestionTapped: (String) -> Unit,
     isRtl: Boolean
 ) {
-    val fontFamily = chatFontFamily(isRtl)
     CompositionLocalProvider(
         LocalLayoutDirection provides if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
     ) {
@@ -1690,8 +1435,7 @@ private fun QuickSuggestions(
                         Text(
                             text = suggestion,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            fontFamily = fontFamily
+                            overflow = TextOverflow.Ellipsis
                         )
                     },
                     colors = SuggestionChipDefaults.suggestionChipColors(
@@ -1712,10 +1456,8 @@ private fun VoiceInputBar(
     onSendMessage: () -> Unit,
     onMicClick: () -> Unit,
     isListening: Boolean,
-    isSpeaking: Boolean,
     isLoading: Boolean,
-    isRtl: Boolean,
-    voiceError: String? = null
+    isRtl: Boolean
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
     val micScale by infiniteTransition.animateFloat(
@@ -1727,147 +1469,82 @@ private fun VoiceInputBar(
         ),
         label = "mic_scale"
     )
-    
-    // Pulsing animation for speaking indicator
-    val speakingAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "speaking_alpha"
-    )
 
     CompositionLocalProvider(
         LocalLayoutDirection provides if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Voice error message
-            AnimatedVisibility(
-                visible = voiceError != null,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = voiceError ?: "",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center
+                // Text input
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = onInputChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(
+                            text = if (isRtl) "اكتب أو تكلم..." else "Type or speak...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PilotPrimaryColor,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(24.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { onSendMessage() }),
+                    enabled = !isLoading && !isListening
                 )
-            }
-            
-            // Speaking indicator
-            AnimatedVisibility(
-                visible = isSpeaking,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = ">>>",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PilotPrimaryColor,
-                        modifier = Modifier.graphicsLayer { alpha = speakingAlpha }
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (isRtl) "فارس يتحدث..." else "Faris speaking...",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PilotPrimaryColor.copy(alpha = speakingAlpha),
-                        fontFamily = chatFontFamily(isRtl)
-                    )
-                }
-            }
-            
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Text input
-                    OutlinedTextField(
-                        value = inputText,
-                        onValueChange = onInputChange,
-                        modifier = Modifier.weight(1f),
-                        placeholder = {
-                            Text(
-                                text = if (isListening) {
-                                    if (isRtl) "استمع..." else "Listening..."
-                                } else {
-                                    if (isRtl) "اكتب أو تكلم..." else "Type or speak..."
-                                },
-                                color = if (isListening) PilotPrimaryColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PilotPrimaryColor,
-                            unfocusedBorderColor = if (isListening) PilotPrimaryColor.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                        ),
-                        shape = RoundedCornerShape(24.dp),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { onSendMessage() }),
-                        enabled = !isLoading && !isListening
-                    )
 
-                    // Mic button (prominent) - now shows stop icon when listening
-                    Surface(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .scale(micScale)
-                            .clickable(enabled = !isLoading) { onMicClick() },
-                        shape = CircleShape,
-                        color = if (isListening) Color(0xFFEF4444) else PilotPrimaryColor, // Red when listening
-                        shadowElevation = if (isListening) 8.dp else 4.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            // Use text symbols for reliable rendering
-                            Text(
-                                text = if (isListening) "II" else "O",
-                                fontSize = if (isListening) 16.sp else 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
+                // Mic button (prominent)
+                Surface(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .scale(micScale)
+                        .clickable(enabled = !isLoading) { onMicClick() },
+                    shape = CircleShape,
+                    color = if (isListening) PilotAccentColor else PilotPrimaryColor,
+                    shadowElevation = if (isListening) 8.dp else 4.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isListening) Icons.Default.Close else Icons.Default.Add,
+                            contentDescription = if (isListening) "Stop" else "Speak",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
+                }
 
-                    // Send button (only show if there's text)
-                    AnimatedVisibility(
-                        visible = inputText.isNotBlank() && !isListening,
-                        enter = scaleIn() + fadeIn(),
-                        exit = scaleOut() + fadeOut()
+                // Send button (only show if there's text)
+                AnimatedVisibility(
+                    visible = inputText.isNotBlank() && !isListening,
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
+                ) {
+                    IconButton(
+                        onClick = onSendMessage,
+                        enabled = !isLoading,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(PilotPrimaryColor, CircleShape)
                     ) {
-                        IconButton(
-                            onClick = onSendMessage,
-                            enabled = !isLoading,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(PilotPrimaryColor, CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Send",
-                                tint = Color.White
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = Color.White
+                        )
                     }
                 }
             }

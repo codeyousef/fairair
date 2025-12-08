@@ -166,7 +166,10 @@ CRITICAL RULES:
 2. Do NOT show the tool call JSON to the user in your final response.
 3. After receiving tool results, respond naturally in the user's language.
 4. NEVER include raw JSON in your response to users - always use friendly natural language.
-5. For flight searches, describe the options conversationally (e.g., "I found 3 flights...").
+5. NEVER mention tool names, internal logic, or explain what you're doing behind the scenes.
+6. For flight selections: When a user says "Select flight X", acknowledge their choice and offer next steps (extras like bags/meals, or proceed to booking).
+7. Do NOT tell users to "tap on the flight card" after they've already selected a flight.
+8. **BOOKING CONFIRMATIONS**: When user says "yes"/"ok"/"confirm" after you showed a booking summary with passenger details, you MUST call create_booking immediately. DO NOT call search_flights again. DO NOT show flights again.
 """.trimIndent()
     }
 
