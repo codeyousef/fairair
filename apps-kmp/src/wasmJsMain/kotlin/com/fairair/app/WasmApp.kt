@@ -68,6 +68,7 @@ import com.fairair.app.ui.theme.VelocityColors
 import com.fairair.app.ui.theme.VelocityTheme
 import com.fairair.app.ui.theme.VelocityThemeWithBackground
 import com.fairair.app.ui.chat.ChatScreenModel
+import com.fairair.app.ui.chat.GridExplosionTransition
 import com.fairair.app.ui.chat.PilotOrb
 import com.fairair.app.ui.chat.PilotFullScreen
 import com.fairair.app.util.LocationService
@@ -589,8 +590,12 @@ private fun WasmAppContent() {
                 }
             }
 
-            // Pilot Full Screen AI - rendered outside main Box to avoid blocking
-            if (showPilotAI) {
+            // Pilot Full Screen AI with grid explosion animation
+            // The animation radiates from the FAB position (bottom-right)
+            GridExplosionTransition(
+                visible = showPilotAI,
+                modifier = Modifier.fillMaxSize()
+            ) {
                 PilotFullScreen(
                     visible = true,
                     uiState = chatUiState,

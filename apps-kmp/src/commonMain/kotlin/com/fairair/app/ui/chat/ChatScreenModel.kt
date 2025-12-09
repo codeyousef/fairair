@@ -136,12 +136,31 @@ class ChatScreenModel(
     }
 
     /**
+     * Detects if text contains Arabic characters.
+     */
+    private fun containsArabic(text: String): Boolean {
+        return text.any { char ->
+            val code = char.code
+            // Arabic Unicode ranges
+            (code in 0x0600..0x06FF) ||  // Arabic
+            (code in 0x0750..0x077F) ||  // Arabic Supplement
+            (code in 0x08A0..0x08FF) ||  // Arabic Extended-A
+            (code in 0xFB50..0xFDFF) ||  // Arabic Presentation Forms-A
+            (code in 0xFE70..0xFEFF)     // Arabic Presentation Forms-B
+        }
+    }
+
+    /**
      * Sends a message to the AI assistant.
+     * The locale is auto-detected from message content (Arabic text → ar-SA).
      */
     @OptIn(ExperimentalUuidApi::class)
     fun sendMessage(message: String = _uiState.value.inputText, locale: String = "en-US") {
         val trimmedMessage = message.trim()
         if (trimmedMessage.isEmpty()) return
+
+        // Auto-detect language from message content
+        val detectedLocale = if (containsArabic(trimmedMessage)) "ar-SA" else locale
 
         val userMessage = ChatMessage(
             id = Uuid.random().toString(),
@@ -168,7 +187,7 @@ class ChatScreenModel(
             val result = apiClient.sendChatMessage(
                 sessionId = sessionId,
                 message = trimmedMessage,
-                locale = locale,
+                locale = detectedLocale,
                 context = buildFullContext()
             )
 

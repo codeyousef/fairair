@@ -19,6 +19,7 @@ import com.fairair.app.localization.LocalizationProvider
 import com.fairair.app.localization.LocalizationState
 import com.fairair.app.persistence.LocalStorage
 import com.fairair.app.ui.chat.ChatScreenModel
+import com.fairair.app.ui.chat.GridExplosionTransition
 import com.fairair.app.ui.chat.PilotFullScreen
 import com.fairair.app.ui.chat.PilotOrb
 import com.fairair.app.ui.screens.search.SearchScreen
@@ -72,12 +73,11 @@ private fun AppContent() {
                     SlideTransition(navigator)
                 }
 
-                // Pilot Full Screen AI - with fade animation
-                // AnimatedVisibility handles enter/exit animations AND removes from composition when done
-                AnimatedVisibility(
+                // Pilot Full Screen AI with grid explosion animation
+                // Squares radiate from FAB position (bottom-right)
+                GridExplosionTransition(
                     visible = showPilotAI,
-                    enter = fadeIn(animationSpec = tween(300)),
-                    exit = fadeOut(animationSpec = tween(300))
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     PilotFullScreen(
                         visible = true,

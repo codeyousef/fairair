@@ -2,10 +2,12 @@ package com.fairair.app.ui.chat
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,8 +16,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
@@ -25,14 +29,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -53,17 +67,65 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 // CompositionLocal for flight selection callback (avoids threading through many layers)
 private val LocalOnFlightSelected = staticCompositionLocalOf<(String) -> Unit> { {} }
 
-// Pilot brand colors - using airline theme
-private val PilotPrimaryColor = Color(0xFF0EA5E9) // Sky blue
-private val PilotSecondaryColor = Color(0xFF6366F1) // Indigo
-private val PilotAccentColor = Color(0xFF22D3EE) // Cyan
+// =============================================================================
+// AURORA THEME COLORS - Deep space with ethereal gradients
+// =============================================================================
+
+// Background colors
+private val AuroraDeepSpace = Color(0xFF020617)  // slate-950
+private val AuroraMidnight = Color(0xFF0F172A)   // slate-900
+
+// Orb state colors
+private val OrbIdle = Color(0xFF3B82F6)          // Blue - calm
+private val OrbIdleGlow = Color(0xFF1E40AF)      // Deeper blue
+private val OrbListening = Color(0xFF60A5FA)     // Bright blue - active recording
+private val OrbListeningGlow = Color(0xFF2563EB) // Vivid blue
+private val OrbProcessing = Color(0xFFA855F7)    // Purple - thinking  
+private val OrbProcessingGlow = Color(0xFF7E22CE) // Deep purple
+private val OrbSpeaking = Color(0xFF06B6D4)      // Cyan - speaking
+private val OrbSpeakingGlow = Color(0xFF0891B2)  // Deep cyan
+
+// Accent colors
+private val AuroraCyan = Color(0xFF22D3EE)
+private val AuroraBlue = Color(0xFF3B82F6)
+private val AuroraPurple = Color(0xFF8B5CF6)
+private val AuroraRose = Color(0xFFFB7185)
+private val AuroraGreen = Color(0xFF10B981)
+
+// Glass/card colors
+private val GlassWhite = Color(0x1AFFFFFF)       // 10% white
+private val GlassBorder = Color(0x33FFFFFF)      // 20% white
+private val GlassStrong = Color(0x26FFFFFF)      // 15% white
+
+// Legacy aliases for compatibility
+private val PilotPrimaryColor = AuroraBlue
+private val PilotSecondaryColor = AuroraPurple
+private val PilotAccentColor = AuroraCyan
 private val PilotGradient = Brush.radialGradient(
-    colors = listOf(PilotAccentColor, PilotPrimaryColor, PilotSecondaryColor)
+    colors = listOf(AuroraCyan, AuroraBlue, AuroraPurple)
 )
+
+// Grid explosion animation constants
+private const val GRID_COLS = 12
+private const val GRID_ROWS = 16
+private const val ANIMATION_DURATION_MS = 800
+
+/**
+ * AI State enum for the orb visual states.
+ */
+enum class AIState {
+    IDLE,       // Default calm state
+    LISTENING,  // Actively recording user speech
+    PROCESSING, // Thinking/waiting for response
+    SPEAKING    // Playing TTS audio
+}
 
 /**
  * Gets the appropriate font family based on RTL mode.
@@ -72,6 +134,592 @@ private val PilotGradient = Brush.radialGradient(
 private fun chatFontFamily(isRtl: Boolean): FontFamily {
     return if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
 }
+
+/**
+ * Detects if text contains Arabic characters.
+ */
+private fun containsArabic(text: String): Boolean {
+    return text.any { char ->
+        val code = char.code
+        (code in 0x0600..0x06FF) ||  // Arabic
+        (code in 0x0750..0x077F) ||  // Arabic Supplement
+        (code in 0x08A0..0x08FF) ||  // Arabic Extended-A
+        (code in 0xFB50..0xFDFF) ||  // Arabic Presentation Forms-A
+        (code in 0xFE70..0xFEFF)     // Arabic Presentation Forms-B
+    }
+}
+
+/**
+ * Strips emojis and problematic Unicode characters that don't render.
+ */
+private fun stripEmojis(text: String): String {
+    return text.filter { char ->
+        val code = char.code
+        code < 0x2000 ||  // Basic multilingual plane common chars
+        (code in 0x0600..0x06FF) ||  // Arabic
+        (code in 0x0750..0x077F) ||  // Arabic Supplement  
+        (code in 0x08A0..0x08FF) ||  // Arabic Extended-A
+        (code in 0xFB50..0xFDFF) ||  // Arabic Presentation Forms-A
+        (code in 0xFE70..0xFEFF) ||  // Arabic Presentation Forms-B
+        (code in 0x2000..0x206F)     // General punctuation
+    }
+}
+
+// =============================================================================
+// AURORA BACKGROUND - Animated flowing light curtains
+// =============================================================================
+
+/**
+ * Living aurora background with animated sine wave gradients.
+ * Uses a single Canvas for GPU-accelerated rendering.
+ */
+@Composable
+fun AuroraBackground(
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "aurora")
+    
+    // Time-based animation for wave movement
+    val time by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2f * PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(20000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "aurora_time"
+    )
+    
+    Canvas(
+        modifier = modifier
+            .fillMaxSize()
+            .blur(60.dp)  // Soften the waves into glowing clouds
+    ) {
+        val w = size.width
+        val h = size.height
+        
+        // Draw multiple layered waves with different colors and speeds
+        drawAuroraWave(
+            canvasWidth = w,
+            canvasHeight = h,
+            yBase = h * 0.4f,
+            amplitude = 80f,
+            frequency = 0.001f,
+            time = time * 1f,
+            colorStart = Color(0x1A4C1D95),  // Purple transparent
+            colorEnd = Color(0x66581C87)     // Purple
+        )
+        
+        drawAuroraWave(
+            canvasWidth = w,
+            canvasHeight = h,
+            yBase = h * 0.5f,
+            amplitude = 60f,
+            frequency = 0.002f,
+            time = time * 1.5f,
+            colorStart = Color(0x1A06B6D4),  // Cyan transparent
+            colorEnd = Color(0x4D3B82F6)     // Blue
+        )
+        
+        drawAuroraWave(
+            canvasWidth = w,
+            canvasHeight = h,
+            yBase = h * 0.6f,
+            amplitude = 40f,
+            frequency = 0.003f,
+            time = time * 2f,
+            colorStart = Color(0x0D2DD4BF),  // Teal transparent
+            colorEnd = Color(0x3310B981)     // Green
+        )
+    }
+}
+
+/**
+ * Draw a single aurora wave layer.
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAuroraWave(
+    canvasWidth: Float,
+    canvasHeight: Float,
+    yBase: Float,
+    amplitude: Float,
+    frequency: Float,
+    time: Float,
+    colorStart: Color,
+    colorEnd: Color
+) {
+    val path = Path()
+    path.moveTo(0f, canvasHeight)
+    
+    // Create wave points
+    var x = 0f
+    while (x <= canvasWidth) {
+        val y = yBase + 
+            sin(x * frequency + time) * amplitude +
+            sin(x * frequency * 2 + time * 1.5f) * (amplitude / 2)
+        path.lineTo(x, y)
+        x += 10f
+    }
+    
+    // Close the path at the bottom
+    path.lineTo(canvasWidth, canvasHeight)
+    path.lineTo(0f, canvasHeight)
+    path.close()
+    
+    // Draw with gradient
+    drawPath(
+        path = path,
+        brush = Brush.verticalGradient(
+            colors = listOf(colorStart, colorEnd),
+            startY = 0f,
+            endY = canvasHeight
+        )
+    )
+}
+
+// =============================================================================
+// MICROPHONE ICON - Custom drawn microphone
+// =============================================================================
+
+/**
+ * Custom microphone icon drawn with Canvas.
+ */
+@Composable
+private fun MicrophoneIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        
+        // Microphone body (rounded rectangle/pill shape)
+        val micWidth = w * 0.4f
+        val micHeight = h * 0.55f
+        val micLeft = (w - micWidth) / 2
+        val micTop = h * 0.05f
+        val cornerRadius = micWidth / 2
+        
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(micLeft, micTop),
+            size = Size(micWidth, micHeight),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius)
+        )
+        
+        // Microphone holder arc (U shape)
+        val arcStrokeWidth = w * 0.08f
+        val arcWidth = w * 0.6f
+        val arcHeight = h * 0.35f
+        val arcLeft = (w - arcWidth) / 2
+        val arcTop = h * 0.35f
+        
+        drawArc(
+            color = tint,
+            startAngle = 0f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(arcLeft, arcTop),
+            size = Size(arcWidth, arcHeight),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = arcStrokeWidth)
+        )
+        
+        // Stand (vertical line)
+        val standWidth = w * 0.08f
+        val standLeft = (w - standWidth) / 2
+        val standTop = h * 0.7f
+        val standHeight = h * 0.18f
+        
+        drawRect(
+            color = tint,
+            topLeft = Offset(standLeft, standTop),
+            size = Size(standWidth, standHeight)
+        )
+        
+        // Base (horizontal line)
+        val baseWidth = w * 0.4f
+        val baseHeight = w * 0.08f
+        val baseLeft = (w - baseWidth) / 2
+        val baseTop = h * 0.88f
+        
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(baseLeft, baseTop),
+            size = Size(baseWidth, baseHeight),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(baseHeight / 2)
+        )
+    }
+}
+
+// =============================================================================
+// AI CORE ORB - Central animated orb with state-based appearance
+// =============================================================================
+
+/**
+ * The AI Core - a glowing orb that changes appearance based on AI state.
+ * States: idle (blue), listening (rose), processing (purple), speaking (cyan)
+ */
+@Composable
+fun AICore(
+    state: AIState,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "ai_core")
+    
+    // Pulse animation - more dramatic for listening
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = when (state) {
+            AIState.LISTENING -> 1.25f  // More dramatic pulse when listening
+            AIState.PROCESSING -> 1.08f
+            AIState.SPEAKING -> 1.1f
+            else -> 1.05f
+        },
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = when (state) {
+                    AIState.LISTENING -> 500  // Faster pulse when listening
+                    AIState.PROCESSING -> 400
+                    AIState.SPEAKING -> 800
+                    else -> 2000
+                },
+                easing = EaseInOutSine
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    
+    // Glow intensity animation for listening
+    val glowIntensity by infiniteTransition.animateFloat(
+        initialValue = if (state == AIState.LISTENING) 0.3f else 0.2f,
+        targetValue = if (state == AIState.LISTENING) 0.8f else 0.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = if (state == AIState.LISTENING) 500 else 2000,
+                easing = EaseInOutSine
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow_intensity"
+    )
+    
+    // Rotation for rings
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(10000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+    
+    // Color animation
+    val (coreColor, glowColor) = when (state) {
+        AIState.LISTENING -> OrbListening to OrbListeningGlow
+        AIState.PROCESSING -> OrbProcessing to OrbProcessingGlow
+        AIState.SPEAKING -> OrbSpeaking to OrbSpeakingGlow
+        else -> OrbIdle to OrbIdleGlow
+    }
+    
+    Box(
+        modifier = modifier.size(160.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Outer ring 1 - pulses when listening
+        Box(
+            modifier = Modifier
+                .size(160.dp)
+                .scale(if (state == AIState.LISTENING) pulse * 0.95f else 1f)
+                .graphicsLayer { rotationZ = rotation }
+                .border(
+                    width = if (state == AIState.LISTENING) 2.dp else 1.dp,
+                    color = when (state) {
+                        AIState.LISTENING -> OrbListening.copy(alpha = glowIntensity * 0.5f)
+                        AIState.SPEAKING -> AuroraCyan.copy(alpha = 0.3f)
+                        else -> GlassBorder.copy(alpha = 0.3f)
+                    },
+                    shape = CircleShape
+                )
+        )
+        
+        // Outer ring 2 (counter-rotating)
+        Box(
+            modifier = Modifier
+                .size(200.dp)
+                .scale(if (state == AIState.LISTENING) pulse * 0.9f else 1f)
+                .graphicsLayer { rotationZ = -rotation * 0.6f }
+                .border(
+                    width = 1.dp,
+                    color = when (state) {
+                        AIState.LISTENING -> OrbListening.copy(alpha = glowIntensity * 0.3f)
+                        AIState.PROCESSING -> GlassBorder.copy(alpha = 0.4f)
+                        else -> GlassBorder.copy(alpha = 0.15f)
+                    },
+                    shape = CircleShape
+                )
+        )
+        
+        // Pulsating rings when listening (similar to speaking waves)
+        if (state == AIState.LISTENING) {
+            repeat(3) { index ->
+                val delay = index * 200
+                val ringAnim = rememberInfiniteTransition(label = "listen_ring_$index")
+                val ringScale by ringAnim.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 2f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800, delayMillis = delay, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "ring_scale_$index"
+                )
+                val ringAlpha by ringAnim.animateFloat(
+                    initialValue = 0.6f,
+                    targetValue = 0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800, delayMillis = delay, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "ring_alpha_$index"
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .scale(ringScale)
+                        .border(
+                            width = 3.dp,
+                            color = OrbListening.copy(alpha = ringAlpha),
+                            shape = CircleShape
+                        )
+                )
+            }
+        }
+        
+        // Glow layers
+        repeat(3) { index ->
+            val layerScale = pulse + (index * 0.15f)
+            val layerAlpha = ((if (state == AIState.LISTENING) glowIntensity else 0.3f) - index * 0.1f).coerceIn(0.05f, 0.5f)
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .scale(layerScale)
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                glowColor.copy(alpha = layerAlpha),
+                                glowColor.copy(alpha = 0f)
+                            )
+                        ),
+                        shape = CircleShape
+                    )
+            )
+        }
+        
+        // The Core orb
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .scale(pulse)
+                .shadow(
+                    elevation = if (state == AIState.LISTENING) 32.dp else 24.dp,
+                    shape = CircleShape,
+                    ambientColor = glowColor,
+                    spotColor = coreColor
+                )
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            coreColor,
+                            glowColor
+                        )
+                    ),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            // Inner noise texture effect (subtle)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .graphicsLayer { 
+                        rotationZ = rotation * 0.2f 
+                        alpha = 0.15f
+                    }
+                    .background(
+                        brush = Brush.sweepGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.2f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.1f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+        }
+        
+        // Audio waves when speaking
+        if (state == AIState.SPEAKING) {
+            repeat(2) { index ->
+                val delay = index * 150
+                val pingAnim = rememberInfiniteTransition(label = "ping_$index")
+                val pingScale by pingAnim.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.8f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1000, delayMillis = delay),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "ping_scale_$index"
+                )
+                val pingAlpha by pingAnim.animateFloat(
+                    initialValue = 0.5f,
+                    targetValue = 0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1000, delayMillis = delay),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "ping_alpha_$index"
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .scale(pingScale)
+                        .border(
+                            width = 2.dp,
+                            color = AuroraCyan.copy(alpha = pingAlpha),
+                            shape = CircleShape
+                        )
+                )
+            }
+        }
+    }
+}
+
+// =============================================================================
+// GRID EXPLOSION ANIMATION - Single Canvas "Shader" Approach
+// =============================================================================
+
+/**
+ * High-performance staggered grid reveal animation.
+ * 
+ * Uses a single Canvas to draw a mask overlay that reveals content
+ * in a wave pattern emanating from the FAB (bottom-right corner).
+ * 
+ * The "Golden Rule": No individual Composable nodes per tile.
+ * All animation math is computed in the draw loop, running on GPU via Skia.
+ */
+@Composable
+fun GridExplosionTransition(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var showContent by remember { mutableStateOf(false) }
+    
+    // Single animation state driving everything (0f to 1f)
+    val transition = updateTransition(targetState = visible, label = "GridReveal")
+    val progress by transition.animateFloat(
+        transitionSpec = { 
+            if (targetState) {
+                tween(durationMillis = ANIMATION_DURATION_MS, easing = FastOutSlowInEasing)
+            } else {
+                tween(durationMillis = 400, easing = FastOutLinearInEasing)
+            }
+        },
+        label = "Progress"
+    ) { isVisible -> if (isVisible) 1f else 0f }
+    
+    // Track content visibility
+    LaunchedEffect(visible, progress) {
+        if (visible) {
+            showContent = true
+        } else if (progress == 0f) {
+            showContent = false
+        }
+    }
+    
+    if (!showContent && !visible) return
+    
+    // The mask color (background that gets revealed away)
+    val maskColor = VelocityColors.BackgroundDeep
+    
+    Box(modifier = modifier.fillMaxSize()) {
+        // Layer 1: The actual content (always rendered when visible)
+        content()
+        
+        // Layer 2: Canvas mask overlay that reveals the content
+        // When progress = 0, mask is fully opaque (hides content)
+        // When progress = 1, mask is fully transparent (shows content)
+        if (progress < 1f) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val cellWidth = size.width / GRID_COLS
+                val cellHeight = size.height / GRID_ROWS
+                
+                // FAB is at bottom-right
+                val fabX = size.width - 36f  // Approximate FAB center
+                val fabY = size.height - 36f
+                
+                // Maximum distance from FAB to furthest corner (top-left)
+                val maxDist = sqrt(
+                    (fabX * fabX) + (fabY * fabY)
+                )
+                
+                for (row in 0 until GRID_ROWS) {
+                    for (col in 0 until GRID_COLS) {
+                        // Calculate cell center
+                        val cellCx = (col * cellWidth) + (cellWidth / 2)
+                        val cellCy = (row * cellHeight) + (cellHeight / 2)
+                        
+                        // Distance from FAB to this cell
+                        val dx = cellCx - fabX
+                        val dy = cellCy - fabY
+                        val dist = sqrt(dx * dx + dy * dy)
+                        
+                        // Normalize distance (0.0 = at FAB, 1.0 = furthest)
+                        val distFraction = dist / maxDist
+                        
+                        // Staggered timing: cells close to FAB animate first
+                        // Wave travels from 0.0 to 1.0 over the animation
+                        val waveStart = distFraction * 0.6f
+                        val waveEnd = waveStart + 0.4f
+                        
+                        // Map global progress to local cell progress
+                        val cellProgress = ((progress - waveStart) / (waveEnd - waveStart)).coerceIn(0f, 1f)
+                        
+                        // Cell alpha: 1 = fully masked, 0 = fully revealed
+                        val cellAlpha = 1f - cellProgress
+                        
+                        if (cellAlpha > 0.01f) {
+                            // Draw mask tile with scale effect
+                            val scale = 0.5f + (0.5f * (1f - cellProgress))
+                            val scaledWidth = cellWidth * scale
+                            val scaledHeight = cellHeight * scale
+                            val offsetX = (cellWidth - scaledWidth) / 2
+                            val offsetY = (cellHeight - scaledHeight) / 2
+                            
+                            drawRect(
+                                color = maskColor.copy(alpha = cellAlpha),
+                                topLeft = Offset(
+                                    col * cellWidth + offsetX,
+                                    row * cellHeight + offsetY
+                                ),
+                                size = Size(scaledWidth, scaledHeight)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// =============================================================================
+// PILOT ORB - The Floating Action Button
 
 // =============================================================================
 // PILOT ORB - The Floating Action Button
@@ -205,16 +853,17 @@ fun PilotOrb(
 }
 
 // =============================================================================
-// PILOT FULL SCREEN - Full-screen AI interface with fade animation
+// PILOT FULL SCREEN - Aurora-themed AI interface
 // =============================================================================
 
 /**
- * Full-screen animated Pilot AI interface.
+ * Full-screen Aurora-themed Pilot AI interface.
  * Features:
- * - Fade in/out animation
- * - Close button in header
- * - Voice-first design with polymorphic UI cards
- * - Text is spoken (TTS) but not displayed when UI components are present
+ * - Living aurora background
+ * - Central AI Core orb that responds to state
+ * - Holographic cards appearing behind the orb
+ * - Chat messages in bottom overlay
+ * - Voice-first design
  */
 @Composable
 fun PilotFullScreen(
@@ -230,188 +879,1079 @@ fun PilotFullScreen(
     locale: String = "en-US"
 ) {
     val isRtl = locale.startsWith("ar")
-    val listState = rememberLazyListState()
-
-    // Scroll to bottom when new messages arrive
+    val messagesScrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    
+    // Determine AI state based on UI state
+    val aiState = when {
+        uiState.isSpeaking -> AIState.SPEAKING
+        uiState.isLoading -> AIState.PROCESSING
+        uiState.isListening -> AIState.LISTENING
+        else -> AIState.IDLE
+    }
+    
+    // Check if there's active content to show (flight card, boarding pass, etc.)
+    val lastAssistantMessage = uiState.messages.lastOrNull { !it.isFromUser }
+    // Only show content card for types that have visual representations
+    val hasActiveContent = lastAssistantMessage?.uiType in listOf(
+        ChatUiType.FLIGHT_LIST,
+        ChatUiType.BOARDING_PASS,
+        ChatUiType.SEAT_MAP,
+        ChatUiType.BOOKING_SUMMARY,
+        ChatUiType.FLIGHT_COMPARISON
+    )
+    
+    // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(uiState.messages.size) {
-        if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
+        scope.launch {
+            messagesScrollState.animateScrollTo(messagesScrollState.maxValue)
         }
     }
 
-    // Note: Animation is handled by the parent via AnimatedVisibility.
-    // This function renders the full-screen content directly.
-    // Provide flight selection callback via CompositionLocal
     CompositionLocalProvider(
         LocalOnFlightSelected provides { flightNumber ->
             onSuggestionTapped("Select flight $flightNumber")
         }
     ) {
-        Surface(
-            modifier = modifier.fillMaxSize(),
-            color = VelocityColors.BackgroundDeep
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(AuroraDeepSpace)
         ) {
+            // Layer 1: Aurora Background
+            AuroraBackground(modifier = Modifier.fillMaxSize())
+            
+            // Layer 2: Main Content
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                VelocityColors.GradientStart,
-                                VelocityColors.GradientEnd,
-                                VelocityColors.BackgroundDeep
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.TopCenter
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-            // Centered container with max width for better readability
+                // Dynamic Content Layer (Behind the orb for depth)
+                // Shows holographic cards when available
+                // Debug: log the state
+                LaunchedEffect(lastAssistantMessage?.uiType, hasActiveContent) {
+                    println("PilotChat: lastAssistantMessage uiType=${lastAssistantMessage?.uiType}, hasActiveContent=$hasActiveContent, uiData length=${lastAssistantMessage?.uiData?.length ?: 0}")
+                }
+                
+                AnimatedVisibility(
+                    visible = hasActiveContent,
+                    enter = fadeIn(tween(500)) + scaleIn(tween(500), initialScale = 0.9f),
+                    exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.9f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .offset(y = (-40).dp)  // Position above center
+                ) {
+                    lastAssistantMessage?.let { message ->
+                        HolographicContentCard(
+                            uiType = message.uiType,
+                            uiData = message.uiData,
+                            isRtl = isRtl
+                        )
+                    }
+                }
+                
+                // The AI Core - moves up and shrinks when content is shown
+                val orbOffsetY by animateDpAsState(
+                    targetValue = if (hasActiveContent) (-180).dp else (-60).dp,
+                    animationSpec = tween(700, easing = FastOutSlowInEasing),
+                    label = "orb_offset"
+                )
+                val orbScale by animateFloatAsState(
+                    targetValue = if (hasActiveContent) 0.5f else 1f,
+                    animationSpec = tween(700, easing = FastOutSlowInEasing),
+                    label = "orb_scale"
+                )
+                
+                AICore(
+                    state = aiState,
+                    modifier = Modifier
+                        .offset(y = orbOffsetY)
+                        .scale(orbScale)
+                )
+            }
+            
+            // Layer 3: Close button (top)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .align(Alignment.TopStart),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+                
+                IconButton(onClick = onClearChat) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Clear",
+                        tint = Color.White.copy(alpha = 0.5f)
+                    )
+                }
+            }
+            
+            // Layer 4: Chat Interface (bottom overlay)
             Column(
                 modifier = Modifier
                     .widthIn(max = 600.dp)
-                    .fillMaxHeight()
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header with close button
-                PilotFullScreenHeader(
-                    onDismiss = onDismiss,
-                    onClearChat = onClearChat,
-                    isRtl = isRtl
-                )
-
-                // Content area - either polymorphic cards or welcome
+                // Messages container (scrollable, max 40% height)
                 Box(
                     modifier = Modifier
-                        .weight(1f)
                         .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                        .padding(bottom = 12.dp)
                 ) {
-                    if (uiState.messages.isEmpty()) {
-                        PilotWelcome(isRtl = isRtl)
-                    } else {
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            contentPadding = PaddingValues(vertical = 16.dp)
-                        ) {
-                            items(uiState.messages, key = { it.id }) { message ->
-                                PolymorphicChatItem(
-                                    message = message,
-                                    isRtl = isRtl,
-                                    hideTextWhenUiPresent = true
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(messagesScrollState),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        uiState.messages.forEach { message ->
+                            AuroraChatBubble(
+                                message = message,
+                                isRtl = isRtl
+                            )
+                        }
+                        
+                        // Show interim transcription immediately while listening
+                        if (uiState.interimText.isNotBlank()) {
+                            InterimTranscriptionBubble(
+                                text = uiState.interimText,
+                                isRtl = isRtl
+                            )
+                        }
+                    }
+                }
+                
+                // Quick suggestions
+                if (lastAssistantMessage?.suggestions?.isNotEmpty() == true) {
+                    AuroraQuickHints(
+                        hints = lastAssistantMessage.suggestions,
+                        onHintClick = onSuggestionTapped,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                } else if (uiState.messages.isEmpty()) {
+                    // Default hints when no messages
+                    AuroraQuickHints(
+                        hints = if (isRtl) {
+                            listOf("أبغى رحلة لجدة", "حالة رحلتي", "وريني البوردنق")
+                        } else {
+                            listOf("Find a flight to Jeddah", "Check flight status", "Show boarding pass")
+                        },
+                        onHintClick = onSuggestionTapped,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                
+                // Input controls
+                AuroraInputBar(
+                    inputText = uiState.inputText,
+                    onInputChange = onInputChange,
+                    onSendMessage = { onSendMessage(uiState.inputText) },
+                    onMicClick = onVoiceClick,
+                    aiState = aiState,
+                    isRtl = isRtl
+                )
+            }
+        }
+    }
+}
+
+// =============================================================================
+// HOLOGRAPHIC CONTENT CARD - Glass-morphism flight info display
+// =============================================================================
+
+/**
+ * Holographic glass card for displaying flight info, boarding pass, etc.
+ */
+@Composable
+private fun HolographicContentCard(
+    uiType: ChatUiType?,
+    uiData: String?,
+    isRtl: Boolean
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .widthIn(max = 400.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = GlassWhite,
+        border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.08f),
+                            Color.White.copy(alpha = 0.02f)
+                        )
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            when (uiType) {
+                ChatUiType.FLIGHT_LIST -> HolographicFlightCard(uiData, isRtl)
+                ChatUiType.BOARDING_PASS -> HolographicBoardingPass(uiData, isRtl)
+                ChatUiType.SEAT_MAP -> HolographicSeatMap(uiData, isRtl)
+                ChatUiType.BOOKING_SUMMARY -> HolographicBookingSummary(uiData, isRtl)
+                // These types don't need visual cards - the text message is sufficient
+                ChatUiType.FLIGHT_SELECTED,
+                ChatUiType.BOOKING_CONFIRMED,
+                ChatUiType.PAYMENT_CONFIRM,
+                null -> {
+                    // No visual card needed
+                }
+                else -> {
+                    // Other types that might have data to display
+                    if (!uiData.isNullOrBlank()) {
+                        Text(
+                            text = "Processing...",
+                            color = Color.White.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Holographic flight list/selection display.
+ * Shows a scrollable list of available flights when multiple options exist.
+ */
+@Composable
+private fun HolographicFlightCard(uiData: String?, isRtl: Boolean) {
+    val flights = remember(uiData) { parseFlightsFromUiData(uiData) }
+    val onFlightSelected = LocalOnFlightSelected.current
+    
+    println("HolographicFlightCard: rendering ${flights.size} flights")
+    
+    if (flights.isEmpty()) {
+        Text(
+            text = "No flights to display",
+            color = Color.White.copy(alpha = 0.5f),
+            style = MaterialTheme.typography.bodySmall
+        )
+        return
+    }
+    
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isRtl) "الرحلات المتاحة" else "AVAILABLE FLIGHTS",
+                style = MaterialTheme.typography.labelSmall,
+                color = AuroraCyan,
+                letterSpacing = 2.sp
+            )
+            Text(
+                text = "${flights.size} ${if (isRtl) "رحلات" else "options"}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.5f)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Flight options - scrollable row
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp)
+        ) {
+            items(flights) { flight ->
+                HolographicFlightOption(
+                    flight = flight,
+                    isRtl = isRtl,
+                    onClick = { onFlightSelected(flight.flightNumber) }
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Hint text
+        Text(
+            text = if (isRtl) "اضغط على رحلة للاختيار" else "Tap a flight to select",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.4f)
+        )
+    }
+}
+
+/**
+ * Individual flight option card in the holographic list.
+ */
+@Composable
+private fun HolographicFlightOption(
+    flight: ParsedFlight,
+    isRtl: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .width(160.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.Black.copy(alpha = 0.3f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Flight number
+            Text(
+                text = flight.flightNumber,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = AuroraCyan
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            // Date
+            if (flight.date.isNotBlank()) {
+                Text(
+                    text = flight.date,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Departure time
+            Text(
+                text = flight.departureTime,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Price
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = AuroraCyan.copy(alpha = 0.15f)
+            ) {
+                Text(
+                    text = flight.price,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AuroraCyan
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HolographicInfoCell(
+    label: String,
+    value: String,
+    highlight: Boolean = false
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color.Black.copy(alpha = 0.2f)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.4f)
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (highlight) AuroraCyan else Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun HolographicBoardingPass(uiData: String?, isRtl: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // QR Code placeholder
+        Surface(
+            modifier = Modifier.size(160.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                // Simple QR pattern simulation
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    repeat(8) { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            repeat(8) { col ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .background(
+                                            if ((row + col) % 2 == 0 || (row * col) % 3 == 0)
+                                                Color.Black
+                                            else
+                                                Color.Transparent
+                                        )
                                 )
                             }
                         }
                     }
                 }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = if (isRtl) "محمد الأحمد" else "Hassan Al-Ahmed",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+        Text(
+            text = "Flight FA 203 • Business Class",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.6f)
+        )
+    }
+}
 
-                // Quick suggestions
-                val lastAssistantMessage = uiState.messages.lastOrNull { !it.isFromUser }
-                if (lastAssistantMessage?.suggestions?.isNotEmpty() == true) {
-                    QuickSuggestions(
-                        suggestions = lastAssistantMessage.suggestions,
-                        onSuggestionTapped = onSuggestionTapped,
-                        isRtl = isRtl
-                    )
+@Composable
+private fun HolographicSeatMap(uiData: String?, isRtl: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = if (isRtl) "اختر مقعدك" else "Select Your Seat",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Simplified seat grid
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(4) { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("A", "B", "C").forEach { col ->
+                            val isSelected = row == 1 && col == "A"
+                            val isOccupied = (row + col.hashCode()) % 3 == 0
+                            Surface(
+                                modifier = Modifier.size(32.dp),
+                                shape = RoundedCornerShape(4.dp),
+                                color = when {
+                                    isSelected -> AuroraCyan
+                                    isOccupied -> Color.Gray.copy(alpha = 0.3f)
+                                    else -> AuroraBlue.copy(alpha = 0.6f)
+                                }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "${row + 1}$col",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        fontSize = 9.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-
-                // Voice-first input bar
-                VoiceInputBar(
-                    inputText = uiState.inputText,
-                    onInputChange = onInputChange,
-                    onSendMessage = { onSendMessage(uiState.inputText) },
-                    onMicClick = onVoiceClick,
-                    isListening = uiState.isListening,
-                    isLoading = uiState.isLoading,
-                    isRtl = isRtl
-                )
+            }
+            
+            Spacer(modifier = Modifier.width(24.dp))
+            
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(4) { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("D", "E", "F").forEach { col ->
+                            val isOccupied = (row + col.hashCode()) % 2 == 0
+                            Surface(
+                                modifier = Modifier.size(32.dp),
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isOccupied) 
+                                    Color.Gray.copy(alpha = 0.3f) 
+                                else 
+                                    AuroraBlue.copy(alpha = 0.6f)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "${row + 1}$col",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        fontSize = 9.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
-    } // End CompositionLocalProvider
 }
 
 /**
- * Header for full-screen mode with prominent close button.
+ * Holographic booking summary card.
  */
 @Composable
-private fun PilotFullScreenHeader(
-    onDismiss: () -> Unit,
-    onClearChat: () -> Unit,
-    isRtl: Boolean
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+private fun HolographicBookingSummary(uiData: String?, isRtl: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Close button
-        IconButton(onClick = onDismiss) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Close",
-                tint = VelocityColors.TextMain
-            )
-        }
-
-        // Pilot avatar and title
-        Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Pilot avatar
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(PilotAccentColor, PilotPrimaryColor, PilotSecondaryColor)
-                        ),
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
+        Text(
+            text = if (isRtl) "ملخص الحجز" else "Booking Summary",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = AuroraCyan
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Parse booking data if available
+        val bookingInfo = remember(uiData) { parseBookingSummary(uiData) }
+        
+        if (bookingInfo != null) {
+            // PNR
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = AuroraCyan.copy(alpha = 0.15f)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column {
                 Text(
-                    text = "Pilot",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = bookingInfo.pnr,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = VelocityColors.TextMain
-                )
-                Text(
-                    text = if (isRtl) "مساعدك الذكي" else "Your AI Assistant",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VelocityColors.TextMuted
+                    color = AuroraCyan,
+                    letterSpacing = 4.sp
                 )
             }
-        }
-
-        // Clear chat button
-        IconButton(onClick = onClearChat) {
-            Icon(
-                imageVector = Icons.Default.Refresh,
-                contentDescription = "Clear chat",
-                tint = VelocityColors.TextMuted
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Flight info
+            Text(
+                text = bookingInfo.flightNumber,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+            
+            Text(
+                text = "${bookingInfo.origin} → ${bookingInfo.destination}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+            
+            Text(
+                text = bookingInfo.dateTime,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.5f)
+            )
+        } else {
+            Text(
+                text = if (isRtl) "جاري تحميل التفاصيل..." else "Loading details...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.6f)
             )
         }
     }
+}
 
-    HorizontalDivider(
-        color = VelocityColors.GlassBorder
+private data class BookingSummaryInfo(
+    val pnr: String,
+    val flightNumber: String,
+    val origin: String,
+    val destination: String,
+    val dateTime: String
+)
+
+private fun parseBookingSummary(uiData: String?): BookingSummaryInfo? {
+    if (uiData.isNullOrBlank()) return null
+    return try {
+        val json = Json { ignoreUnknownKeys = true }
+        val root = json.parseToJsonElement(uiData).jsonObject
+        BookingSummaryInfo(
+            pnr = root["pnr"]?.jsonPrimitive?.contentOrNull ?: "",
+            flightNumber = root["flightNumber"]?.jsonPrimitive?.contentOrNull ?: "",
+            origin = root["origin"]?.jsonPrimitive?.contentOrNull ?: "",
+            destination = root["destination"]?.jsonPrimitive?.contentOrNull ?: "",
+            dateTime = root["dateTime"]?.jsonPrimitive?.contentOrNull ?: ""
+        )
+    } catch (e: Exception) {
+        null
+    }
+}
+
+// =============================================================================
+// AURORA CHAT BUBBLES - Modern chat message design
+// =============================================================================
+
+/**
+ * Aurora-styled chat bubble with glowing indicator.
+ */
+@Composable
+private fun AuroraChatBubble(
+    message: ChatMessage,
+    isRtl: Boolean
+) {
+    val cleanText = stripEmojis(message.text)
+    val isArabic = containsArabic(cleanText)
+    val fontFamily = if (isArabic) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    val isAi = !message.isFromUser
+    
+    if (message.isLoading) {
+        AuroraLoadingIndicator()
+        return
+    }
+    
+    // Skip empty messages or messages that only have UI content
+    if (cleanText.isBlank() && message.uiType != null) return
+    if (cleanText.isBlank()) return
+    
+    CompositionLocalProvider(
+        LocalLayoutDirection provides if (isArabic) LayoutDirection.Rtl else LayoutDirection.Ltr
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(),
+            horizontalArrangement = if (isAi) Arrangement.Start else Arrangement.End
+        ) {
+            Row(
+                modifier = Modifier.widthIn(max = 300.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = if (isAi) Arrangement.Start else Arrangement.End
+            ) {
+                // Glowing indicator bar
+                if (isAi) {
+                    Box(
+                        modifier = Modifier
+                            .width(2.dp)
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(1.dp))
+                            .background(AuroraCyan)
+                            .shadow(4.dp, spotColor = AuroraCyan)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                
+                // Bubble
+                Surface(
+                    shape = RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (isAi) 4.dp else 16.dp,
+                        bottomEnd = if (isAi) 16.dp else 4.dp
+                    ),
+                    color = if (isAi) 
+                        Color.Black.copy(alpha = 0.4f) 
+                    else 
+                        GlassWhite,
+                    border = if (isAi) 
+                        androidx.compose.foundation.BorderStroke(1.dp, GlassBorder) 
+                    else 
+                        null
+                ) {
+                    Text(
+                        text = cleanText,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = fontFamily,
+                            lineHeight = 22.sp
+                        ),
+                        color = if (isAi) 
+                            Color(0xFFE0F2FE)  // Cyan-tinted white
+                        else 
+                            Color.White
+                    )
+                }
+                
+                // User indicator
+                if (!isAi) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(2.dp)
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(1.dp))
+                            .background(AuroraRose)
+                            .shadow(4.dp, spotColor = AuroraRose)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Shows interim transcription text while the user is speaking.
+ * Appears with a pulsing animation to indicate it's still being processed.
+ */
+@Composable
+private fun InterimTranscriptionBubble(
+    text: String,
+    isRtl: Boolean
+) {
+    val cleanText = stripEmojis(text)
+    val isArabic = containsArabic(cleanText)
+    val fontFamily = if (isArabic) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    
+    val infiniteTransition = rememberInfiniteTransition(label = "interim_pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "interim_alpha"
     )
+    
+    CompositionLocalProvider(
+        LocalLayoutDirection provides if (isArabic) LayoutDirection.Rtl else LayoutDirection.Ltr
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = 400.dp)
+                .fillMaxWidth()
+                .graphicsLayer { this.alpha = alpha },
+            horizontalArrangement = Arrangement.End
+        ) {
+            Row(
+                modifier = Modifier.widthIn(max = 300.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.End
+            ) {
+                // Bubble with dashed border to indicate interim
+                Surface(
+                    shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
+                    color = GlassWhite.copy(alpha = 0.5f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        OrbListening.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Microphone indicator
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(OrbListening, CircleShape)
+                        )
+                        Text(
+                            text = cleanText,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = fontFamily,
+                                lineHeight = 22.sp
+                            ),
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(1.dp))
+                        .background(OrbListening)
+                        .shadow(4.dp, spotColor = OrbListening)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuroraLoadingIndicator() {
+    val infiniteTransition = rememberInfiniteTransition(label = "loading")
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(1.dp))
+                    .background(AuroraCyan)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Surface(
+                shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
+                color = Color.Black.copy(alpha = 0.4f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    repeat(3) { index ->
+                        val alpha by infiniteTransition.animateFloat(
+                            initialValue = 0.3f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(600, delayMillis = index * 150),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "dot$index"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(
+                                    AuroraCyan.copy(alpha = alpha),
+                                    CircleShape
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// =============================================================================
+// AURORA INPUT BAR - Modern voice-first input
+// =============================================================================
+
+/**
+ * Quick hint chips for suggestions.
+ */
+@Composable
+private fun AuroraQuickHints(
+    hints: List<String>,
+    onHintClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+    ) {
+        hints.take(3).forEach { hint ->
+            Surface(
+                modifier = Modifier.clickable { onHintClick(hint) },
+                shape = RoundedCornerShape(20.dp),
+                color = Color.Transparent,
+                border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder)
+            ) {
+                Text(
+                    text = hint,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AuroraCyan.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Aurora-styled input bar with voice button.
+ */
+@Composable
+private fun AuroraInputBar(
+    inputText: String,
+    onInputChange: (String) -> Unit,
+    onSendMessage: () -> Unit,
+    onMicClick: () -> Unit,
+    aiState: AIState,
+    isRtl: Boolean
+) {
+    val focusRequester = remember { FocusRequester() }
+    val isListening = aiState == AIState.LISTENING
+    val isProcessing = aiState == AIState.PROCESSING
+    
+    Row(
+        modifier = Modifier
+            .widthIn(max = 600.dp)
+            .fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Text input
+        Surface(
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(28.dp),
+            color = GlassWhite,
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (inputText.isNotEmpty()) AuroraCyan.copy(alpha = 0.5f) else GlassBorder
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BasicTextField(
+                    value = inputText,
+                    onValueChange = onInputChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = 12.dp)
+                        .focusRequester(focusRequester),
+                    textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = 16.sp
+                    ),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { onSendMessage() }),
+                    enabled = !isProcessing && !isListening,
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (inputText.isEmpty()) {
+                                Text(
+                                    text = if (isRtl) "اكتب أو تكلم..." else "Ask Pilot...",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.4f),
+                                        fontSize = 16.sp
+                                    )
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
+                
+                // Send button (appears when text is entered)
+                AnimatedVisibility(
+                    visible = inputText.isNotBlank(),
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
+                ) {
+                    IconButton(
+                        onClick = onSendMessage,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(GlassWhite, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Voice button
+        val micColor by animateColorAsState(
+            targetValue = when {
+                isListening -> OrbListening
+                isProcessing -> OrbProcessing
+                else -> GlassWhite
+            },
+            animationSpec = tween(300),
+            label = "mic_color"
+        )
+        
+        val micScale by animateFloatAsState(
+            targetValue = if (isListening) 1.1f else 1f,
+            animationSpec = if (isListening) {
+                infiniteRepeatable(
+                    animation = tween(500),
+                    repeatMode = RepeatMode.Reverse
+                )
+            } else {
+                tween(200)
+            },
+            label = "mic_scale"
+        )
+        
+        Surface(
+            modifier = Modifier
+                .size(56.dp)
+                .scale(micScale)
+                .clickable(
+                    enabled = !isProcessing,
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { onMicClick() },
+            shape = CircleShape,
+            color = micColor,
+            border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder),
+            shadowElevation = if (isListening) 8.dp else 0.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (isListening) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Stop",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    // Microphone icon drawn with Canvas
+                    MicrophoneIcon(
+                        tint = AuroraCyan,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+    }
 }
 
 // Legacy wrapper for compatibility
@@ -782,42 +2322,58 @@ private fun PolymorphicChatItem(
 
 @Composable
 private fun UserBubble(text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
+    val cleanText = stripEmojis(text)
+    val isArabic = containsArabic(cleanText)
+    val fontFamily = if (isArabic) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    
+    CompositionLocalProvider(
+        LocalLayoutDirection provides if (isArabic) LayoutDirection.Rtl else LayoutDirection.Ltr
     ) {
-        Surface(
-            modifier = Modifier.widthIn(max = 280.dp),
-            shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
-            color = PilotPrimaryColor
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
         ) {
-            Text(
-                text = text,
-                modifier = Modifier.padding(12.dp),
-                color = Color.White,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Surface(
+                modifier = Modifier.widthIn(max = 280.dp),
+                shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
+                color = PilotPrimaryColor
+            ) {
+                Text(
+                    text = cleanText,
+                    modifier = Modifier.padding(12.dp),
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = fontFamily)
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun AssistantBubble(text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
+    val cleanText = stripEmojis(text)
+    val isArabic = containsArabic(cleanText)
+    val fontFamily = if (isArabic) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    
+    CompositionLocalProvider(
+        LocalLayoutDirection provides if (isArabic) LayoutDirection.Rtl else LayoutDirection.Ltr
     ) {
-        Surface(
-            modifier = Modifier.widthIn(max = 300.dp),
-            shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
-            color = VelocityColors.GlassBg
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start
         ) {
-            Text(
-                text = text,
-                modifier = Modifier.padding(12.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = VelocityColors.TextMain
-            )
+            Surface(
+                modifier = Modifier.widthIn(max = 300.dp),
+                shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
+                color = VelocityColors.GlassBg
+            ) {
+                Text(
+                    text = cleanText,
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = fontFamily),
+                    color = VelocityColors.TextMain
+                )
+            }
         }
     }
 }
@@ -946,6 +2502,7 @@ private fun FlightCarouselCard(uiData: String?, isRtl: Boolean) {
 private data class ParsedFlight(
     val flightNumber: String,
     val departureTime: String,
+    val date: String,
     val price: String
 )
 
@@ -954,12 +2511,27 @@ private data class ParsedFlight(
  * Expected format: {"flights": [{"flightNumber": "FA101", "departureTime": "09:00", "lowestPrice": 450, "currency": "SAR"}, ...]}
  */
 private fun parseFlightsFromUiData(uiData: String?): List<ParsedFlight> {
-    if (uiData.isNullOrBlank()) return emptyList()
+    if (uiData.isNullOrBlank()) {
+        println("parseFlightsFromUiData: uiData is null or blank")
+        return emptyList()
+    }
+    
+    println("parseFlightsFromUiData: Parsing uiData (${uiData.length} chars): ${uiData.take(200)}")
     
     return try {
         val json = Json { ignoreUnknownKeys = true }
         val root = json.parseToJsonElement(uiData).jsonObject
-        val flightsArray = root["flights"]?.jsonArray ?: return emptyList()
+        val flightsArray = root["flights"]?.jsonArray
+        
+        if (flightsArray == null) {
+            println("parseFlightsFromUiData: No 'flights' array found in JSON")
+            return emptyList()
+        }
+        
+        println("parseFlightsFromUiData: Found ${flightsArray.size} flights in array")
+        
+        // Get the flight date from the root object
+        val flightDate = root["date"]?.jsonPrimitive?.contentOrNull?.let { formatDateForDisplay(it) } ?: ""
         
         flightsArray.mapNotNull { element ->
             val obj = element.jsonObject
@@ -971,12 +2543,13 @@ private fun parseFlightsFromUiData(uiData: String?): List<ParsedFlight> {
             ParsedFlight(
                 flightNumber = flightNumber,
                 departureTime = departureTime,
+                date = flightDate,
                 price = "$currency ${lowestPrice.toInt()}"
             )
         }
     } catch (e: Exception) {
         // Log error in debug, return empty list
-        println("FlightCarouselCard: Failed to parse uiData: ${e.message}")
+        println("parseFlightsFromUiData: Failed to parse: ${e.message}")
         emptyList()
     }
 }
@@ -990,6 +2563,38 @@ private fun formatTimeForDisplay(time: String): String {
         time.substringAfter("T").substringBefore(":00", time.substringAfter("T").take(5))
     } else {
         time.take(5) // Already HH:mm format
+    }
+}
+
+/**
+ * Format date string for display (e.g., "2025-12-10" -> "Dec 10").
+ */
+private fun formatDateForDisplay(date: String): String {
+    return try {
+        val parts = date.split("-")
+        if (parts.size == 3) {
+            val month = when (parts[1]) {
+                "01" -> "Jan"
+                "02" -> "Feb"
+                "03" -> "Mar"
+                "04" -> "Apr"
+                "05" -> "May"
+                "06" -> "Jun"
+                "07" -> "Jul"
+                "08" -> "Aug"
+                "09" -> "Sep"
+                "10" -> "Oct"
+                "11" -> "Nov"
+                "12" -> "Dec"
+                else -> parts[1]
+            }
+            val day = parts[2].toIntOrNull() ?: parts[2]
+            "$month $day"
+        } else {
+            date
+        }
+    } catch (e: Exception) {
+        date
     }
 }
 

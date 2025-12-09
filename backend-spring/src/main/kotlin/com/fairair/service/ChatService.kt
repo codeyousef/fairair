@@ -68,7 +68,11 @@ class ChatService(
             val (toolResults, toolExecutionResults) = executeToolCalls(response.toolCalls, request.context)
             
             // Keep the last tool execution result for UI data
-            lastToolResult = toolExecutionResults.lastOrNull { it.uiType != null } ?: lastToolResult
+            val newToolResult = toolExecutionResults.lastOrNull { it.uiType != null }
+            if (newToolResult != null) {
+                log.info("Tool execution returned uiType: ${newToolResult.uiType}")
+                lastToolResult = newToolResult
+            }
             
             response = aiProvider.continueWithToolResults(
                 sessionId = request.sessionId,
@@ -80,6 +84,7 @@ class ChatService(
             log.warn("Max tool iterations reached for session ${request.sessionId}")
         }
         
+        log.info("Final response - lastToolResult uiType: ${lastToolResult?.uiType}, text length: ${response.text.length}")
         return createChatResponse(response, request.locale, lastToolResult)
     }
 

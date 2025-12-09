@@ -36,7 +36,7 @@ class VoiceService {
                 val audioBytes = Base64.getDecoder().decode(audioBase64)
                 log.info("Transcribing audio: ${audioBytes.size} bytes, primary language: $languageCode")
                 
-                if (audioBytes.size < 1000) {
+                if (audioBytes.size < 3000) {
                     log.warn("Audio too short: ${audioBytes.size} bytes")
                     return@withContext TranscriptionResult(
                         text = "",
@@ -45,7 +45,7 @@ class VoiceService {
                         error = "Audio too short - please speak longer"
                     )
                 }
-                
+
                 SpeechClient.create().use { speechClient ->
                     // Enable multi-language detection: user can speak English or Arabic
                     // Primary language is based on UI, but we detect both
@@ -83,9 +83,12 @@ class VoiceService {
                     val confidence = bestResult?.second ?: 0f
                     val detectedLanguage = bestResult?.third?.ifBlank { languageCode } ?: languageCode
                     
-                    log.info("Transcribed (detected: $detectedLanguage): '$transcript' (confidence: $confidence)")
+                    // Clean up filler words and artifacts that STT sometimes picks up from noise
+                    val cleanedTranscript = cleanTranscript(transcript)
+                    
+                    log.info("Transcribed (detected: $detectedLanguage): '$cleanedTranscript' (confidence: $confidence)")
                     TranscriptionResult(
-                        text = transcript,
+                        text = cleanedTranscript,
                         confidence = confidence,
                         languageCode = detectedLanguage
                     )
@@ -191,3 +194,30 @@ data class SynthesisResult(
     val durationMs: Long,
     val error: String? = null
 )
+
+/**
+ * Cleans up filler words and artifacts that STT sometimes picks up from noise.
+ * These are common false positives that don't add meaning to the transcription.
+ */
+private fun cleanTranscript(text: String): String {
+    // Common filler words and noise artifacts (case-insensitive patterns)
+    val fillerPatterns = listOf(
+        "^\\s*(so|um|uh|hmm|ah|oh|eh|er|like)\\s*$",  // Entire text is just a filler
+        "^\\s*(so|um|uh|hmm|ah|oh|eh|er|like)\\s+",   // Filler at start
+        "\\s+(so)\\s*$",                               // "so" at the very end (artifact)
+    )
+    
+    var cleaned = text.trim()
+    
+    // Remove filler patterns
+    for (pattern in fillerPatterns) {
+        cleaned = cleaned.replace(Regex(pattern, RegexOption.IGNORE_CASE), " ").trim()
+    }
+    
+    // If after cleaning we only have a very short result (1-2 chars), it's probably noise
+    if (cleaned.length <= 2) {
+        return ""
+    }
+    
+    return cleaned
+}
