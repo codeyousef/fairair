@@ -289,25 +289,20 @@ CRITICAL RULES:
         }
         
         // If no code block, look for bare JSON that looks like a tool call
-        // Pattern: {"name": "...", "arguments": {...}}
-        val bareJsonPattern = Regex("""\{\s*"name"\s*:\s*"(\w+)"\s*,\s*"arguments"\s*:\s*(\{[^}]+\})\s*\}""")
-        val bareMatch = bareJsonPattern.find(responseText)
+        // Try to find any JSON object that contains "name" field (tool call indicator)
+        val jsonObjectPattern = Regex("""\{[^{}]*"name"[^{}]*\}""")
+        val jsonMatches = jsonObjectPattern.findAll(responseText)
         
-        if (bareMatch != null) {
-            val toolName = bareMatch.groupValues[1]
-            val arguments = bareMatch.groupValues[2]
-            log.info("Detected bare JSON tool call: $toolName")
-            return AiChatResponse(
-                text = responseText.replace(bareMatch.value, "").trim(),
-                toolCalls = listOf(
-                    ToolCall(
-                        id = UUID.randomUUID().toString(),
-                        name = toolName,
-                        arguments = arguments
-                    )
-                ),
-                isComplete = false
-            )
+        for (jsonMatch in jsonMatches) {
+            val parsed = tryParseToolCall(jsonMatch.value)
+            if (parsed != null) {
+                log.info("Detected bare JSON tool call: ${parsed.name}")
+                return AiChatResponse(
+                    text = responseText.replace(jsonMatch.value, "").trim(),
+                    toolCalls = listOf(parsed),
+                    isComplete = false
+                )
+            }
         }
         
         return AiChatResponse(

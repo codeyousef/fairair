@@ -2558,9 +2558,10 @@ private fun parseFlightsFromUiData(uiData: String?): List<ParsedFlight> {
  * Format time string for display (extract HH:mm from ISO datetime if needed).
  */
 private fun formatTimeForDisplay(time: String): String {
-    // If it's an ISO datetime like "2025-12-10T09:00:00", extract the time part
+    // If it's an ISO datetime like "2025-12-10T09:00:00", extract the time part (HH:mm)
     return if (time.contains("T")) {
-        time.substringAfter("T").substringBefore(":00", time.substringAfter("T").take(5))
+        // Extract time after T, then take first 5 chars (HH:mm)
+        time.substringAfter("T").take(5)
     } else {
         time.take(5) // Already HH:mm format
     }
