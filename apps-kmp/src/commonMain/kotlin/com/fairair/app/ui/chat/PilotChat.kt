@@ -54,6 +54,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.contentOrNull
 
+// CompositionLocal for flight selection callback (avoids threading through many layers)
+private val LocalOnFlightSelected = staticCompositionLocalOf<(String) -> Unit> { {} }
+
 // Pilot brand colors - using airline theme
 private val PilotPrimaryColor = Color(0xFF0EA5E9) // Sky blue
 private val PilotSecondaryColor = Color(0xFF6366F1) // Indigo
@@ -238,24 +241,30 @@ fun PilotFullScreen(
 
     // Note: Animation is handled by the parent via AnimatedVisibility.
     // This function renders the full-screen content directly.
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = VelocityColors.BackgroundDeep
+    // Provide flight selection callback via CompositionLocal
+    CompositionLocalProvider(
+        LocalOnFlightSelected provides { flightNumber ->
+            onSuggestionTapped("Select flight $flightNumber")
+        }
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            VelocityColors.GradientStart,
-                            VelocityColors.GradientEnd,
-                            VelocityColors.BackgroundDeep
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.TopCenter
+        Surface(
+            modifier = modifier.fillMaxSize(),
+            color = VelocityColors.BackgroundDeep
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                VelocityColors.GradientStart,
+                                VelocityColors.GradientEnd,
+                                VelocityColors.BackgroundDeep
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.TopCenter
+            ) {
             // Centered container with max width for better readability
             Column(
                 modifier = Modifier
@@ -320,6 +329,7 @@ fun PilotFullScreen(
             }
         }
     }
+    } // End CompositionLocalProvider
 }
 
 /**
@@ -462,17 +472,23 @@ fun PilotOverlay(
         }
     }
 
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.55f), // Half-height as per spec
-        color = VelocityColors.BackgroundMid,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        tonalElevation = 8.dp,
-        shadowElevation = 16.dp
+    // Provide flight selection callback via CompositionLocal
+    CompositionLocalProvider(
+        LocalOnFlightSelected provides { flightNumber ->
+            onSuggestionTapped("Select flight $flightNumber")
+        }
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Header with dismiss handle
+        Surface(
+            modifier = modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.55f), // Half-height as per spec
+            color = VelocityColors.BackgroundMid,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            tonalElevation = 8.dp,
+            shadowElevation = 16.dp
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header with dismiss handle
             PilotHeader(
                 onDismiss = onDismiss,
                 onClearChat = onClearChat,
@@ -528,6 +544,7 @@ fun PilotOverlay(
             )
         }
     }
+    } // End CompositionLocalProvider
 }
 
 @Composable
@@ -881,12 +898,22 @@ private fun PolymorphicCard(
 
 @Composable
 private fun FlightCarouselCard(uiData: String?, isRtl: Boolean) {
-    // Mock flight data for demo - in production, parse uiData JSON
-    val flights = listOf(
-        Triple("FA 101", "09:00", "SAR 450"),
-        Triple("FA 203", "14:30", "SAR 380"),
-        Triple("FA 305", "19:15", "SAR 520")
-    )
+    val onFlightSelected = LocalOnFlightSelected.current
+    
+    // Parse flights from uiData JSON, with fallback to empty list
+    val flights = remember(uiData) {
+        parseFlightsFromUiData(uiData)
+    }
+    
+    if (flights.isEmpty()) {
+        // Show "no flights" message if parsing failed or no flights
+        Text(
+            text = if (isRtl) "لا توجد رحلات متاحة" else "No flights available",
+            style = MaterialTheme.typography.bodyMedium,
+            color = VelocityColors.TextMuted
+        )
+        return
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -901,15 +928,68 @@ private fun FlightCarouselCard(uiData: String?, isRtl: Boolean) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(end = 16.dp)
         ) {
-            items(flights) { (flightNum, time, price) ->
+            items(flights) { flight ->
                 FlightOptionCard(
-                    flightNumber = flightNum,
-                    departureTime = time,
-                    price = price,
-                    onClick = { /* Select flight */ }
+                    flightNumber = flight.flightNumber,
+                    departureTime = flight.departureTime,
+                    price = flight.price,
+                    onClick = { onFlightSelected(flight.flightNumber) }
                 )
             }
         }
+    }
+}
+
+/**
+ * Data class for parsed flight info from uiData JSON.
+ */
+private data class ParsedFlight(
+    val flightNumber: String,
+    val departureTime: String,
+    val price: String
+)
+
+/**
+ * Parse flights from the uiData JSON string.
+ * Expected format: {"flights": [{"flightNumber": "FA101", "departureTime": "09:00", "lowestPrice": 450, "currency": "SAR"}, ...]}
+ */
+private fun parseFlightsFromUiData(uiData: String?): List<ParsedFlight> {
+    if (uiData.isNullOrBlank()) return emptyList()
+    
+    return try {
+        val json = Json { ignoreUnknownKeys = true }
+        val root = json.parseToJsonElement(uiData).jsonObject
+        val flightsArray = root["flights"]?.jsonArray ?: return emptyList()
+        
+        flightsArray.mapNotNull { element ->
+            val obj = element.jsonObject
+            val flightNumber = obj["flightNumber"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val departureTime = obj["departureTime"]?.jsonPrimitive?.contentOrNull?.let { formatTimeForDisplay(it) } ?: ""
+            val lowestPrice = obj["lowestPrice"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+            val currency = obj["currency"]?.jsonPrimitive?.contentOrNull ?: "SAR"
+            
+            ParsedFlight(
+                flightNumber = flightNumber,
+                departureTime = departureTime,
+                price = "$currency ${lowestPrice.toInt()}"
+            )
+        }
+    } catch (e: Exception) {
+        // Log error in debug, return empty list
+        println("FlightCarouselCard: Failed to parse uiData: ${e.message}")
+        emptyList()
+    }
+}
+
+/**
+ * Format time string for display (extract HH:mm from ISO datetime if needed).
+ */
+private fun formatTimeForDisplay(time: String): String {
+    // If it's an ISO datetime like "2025-12-10T09:00:00", extract the time part
+    return if (time.contains("T")) {
+        time.substringAfter("T").substringBefore(":00", time.substringAfter("T").take(5))
+    } else {
+        time.take(5) // Already HH:mm format
     }
 }
 

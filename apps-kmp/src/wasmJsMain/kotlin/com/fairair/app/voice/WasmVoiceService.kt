@@ -3,6 +3,7 @@ package com.fairair.app.voice
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,8 @@ import kotlinx.coroutines.launch
  * Web Voice Service implementation using backend STT/TTS APIs.
  * Records audio using browser MediaRecorder, sends to backend for processing.
  * This bypasses browser Web Speech API limitations (network errors, etc).
+ * 
+ * Continuous listening mode: Once started, keeps listening until explicitly stopped.
  */
 class WasmVoiceService : VoiceService {
     
@@ -27,14 +30,32 @@ class WasmVoiceService : VoiceService {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var currentLanguage: String = VoiceLanguages.ENGLISH_US
     
+    // Flag to track if we should continue listening after transcription
+    private var continuousListening: Boolean = false
+    
     override fun startListening(language: String) {
         if (!isRecordingAvailable()) {
             _state.value = _state.value.copy(error = "Audio recording not supported")
             return
         }
         
+        // Interrupt any ongoing TTS when user starts speaking
+        if (_state.value.isSpeaking) {
+            stopSpeaking()
+        }
+        
         currentLanguage = language
+        continuousListening = true // Enable continuous listening mode
         _state.value = _state.value.copy(isListening = true, error = null, interimText = "Listening...")
+        
+        startContinuousRecording(language)
+    }
+    
+    /**
+     * Start or restart recording for continuous listening.
+     */
+    private fun startContinuousRecording(language: String) {
+        if (!continuousListening) return
         
         startRecording(
             onAudioData = { audioBase64 ->
@@ -48,41 +69,66 @@ class WasmVoiceService : VoiceService {
                         onSuccess = { text ->
                             if (text.isNotBlank()) {
                                 _transcribedText.tryEmit(text)
+                            }
+                            
+                            // Continue listening if still in continuous mode
+                            if (continuousListening) {
+                                _state.value = _state.value.copy(
+                                    isListening = true,
+                                    interimText = "Listening..."
+                                )
+                                // Restart recording after a brief delay
+                                startContinuousRecording(language)
+                            } else {
                                 _state.value = _state.value.copy(
                                     isListening = false,
                                     interimText = ""
                                 )
-                            } else {
-                                // No speech detected
-                                _state.value = _state.value.copy(
-                                    isListening = false,
-                                    interimText = "",
-                                    error = "No speech detected. Try speaking louder or longer."
-                                )
                             }
                         },
                         onError = { error ->
-                            _state.value = _state.value.copy(
-                                isListening = false,
-                                interimText = "",
-                                error = error
-                            )
+                            // On error, still continue listening if in continuous mode
+                            if (continuousListening) {
+                                _state.value = _state.value.copy(
+                                    isListening = true,
+                                    interimText = "Listening...",
+                                    error = null // Clear error, keep listening
+                                )
+                                startContinuousRecording(language)
+                            } else {
+                                _state.value = _state.value.copy(
+                                    isListening = false,
+                                    interimText = "",
+                                    error = error
+                                )
+                            }
                         }
                     )
                 }
             },
             onError = { error ->
-                _state.value = _state.value.copy(
-                    isListening = false,
-                    error = "Recording failed: $error"
-                )
+                // On recording error, try to restart if in continuous mode
+                if (continuousListening) {
+                    scope.launch {
+                        kotlinx.coroutines.delay(500) // Brief delay before retry
+                        if (continuousListening) {
+                            startContinuousRecording(language)
+                        }
+                    }
+                } else {
+                    _state.value = _state.value.copy(
+                        isListening = false,
+                        error = "Recording failed: $error"
+                    )
+                }
             }
         )
     }
     
     override fun stopListening() {
+        continuousListening = false // Disable continuous listening mode
         stopRecording()
-        // The onAudioData callback will be triggered with the recorded audio
+        _state.value = _state.value.copy(isListening = false, interimText = "")
     }
     
     override fun speak(text: String, language: String) {
@@ -213,13 +259,13 @@ private external fun isRecordingAvailable(): Boolean
             window._fairairMediaRecorder.start(1000);
             console.log('Recording started, state:', window._fairairMediaRecorder.state);
             
-            // Auto-stop after 5 seconds for voice commands
+            // Auto-stop after 8 seconds for processing (continuous listening will restart)
             window._fairairRecordingTimer = setTimeout(() => {
                 if (window._fairairMediaRecorder && window._fairairMediaRecorder.state === 'recording') {
-                    console.log('Auto-stopping recording after 5 seconds');
+                    console.log('Auto-stopping recording for processing');
                     window._fairairMediaRecorder.stop();
                 }
-            }, 5000);
+            }, 8000);
         })
         .catch(err => {
             console.error('getUserMedia error:', err);
