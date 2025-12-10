@@ -277,8 +277,11 @@ class ChatScreenModel(
 
     /**
      * Handles a quick reply suggestion being tapped.
+     * Stops any ongoing speech and sends the message.
      */
     fun onSuggestionTapped(suggestion: String) {
+        // Stop any ongoing speech when user interacts
+        voiceService.stopSpeaking()
         sendMessage(suggestion)
     }
 

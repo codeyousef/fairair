@@ -325,7 +325,8 @@ fun AICentricLandingScreen(
                             isListening = chatState.isListening,
                             isLoading = chatState.isLoading,
                             onManualBookClick = onManualBookClick,
-                            isRtl = isRtl
+                            isRtl = isRtl,
+                            userLocationCode = userLocationCode
                         )
                     } else {
                         // Conversation mode - show chat with dynamic content
@@ -548,7 +549,8 @@ private fun AIHeroSection(
     isListening: Boolean,
     isLoading: Boolean,
     onManualBookClick: () -> Unit,
-    isRtl: Boolean
+    isRtl: Boolean,
+    userLocationCode: String? = null
 ) {
     val strings = LocalStrings.current
     val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
@@ -644,6 +646,28 @@ private fun AIHeroSection(
                 .widthIn(max = MaxCardWidth)
                 .fillMaxWidth()
         )
+        
+        // Location indicator - shows detected origin
+        if (userLocationCode != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = AuroraCyan.copy(alpha = 0.7f),
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (isRtl) "الانطلاق من $userLocationCode" else "Flying from $userLocationCode",
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = fontFamily),
+                    color = VelocityColors.TextMuted.copy(alpha = 0.7f)
+                )
+            }
+        }
         
         Spacer(modifier = Modifier.height(24.dp))
         
@@ -1003,14 +1027,15 @@ private fun ConversationItem(
                 isRtl = isRtl
             )
         } else if (message.uiType != null) {
-            // Show assistant text briefly, then the dynamic card
+            // Show assistant text as a proper message bubble, then the dynamic card
             if (message.text.isNotBlank()) {
-                Text(
+                MessageBubble(
                     text = message.text,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = fontFamily),
-                    color = VelocityColors.TextMuted,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    isFromUser = false,
+                    isError = message.isError,
+                    isRtl = isRtl
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
             
             // Dynamic content card
