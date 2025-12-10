@@ -62,6 +62,7 @@ import com.fairair.app.ui.screens.search.VelocitySearchScreen
 import com.fairair.app.ui.screens.search.VelocitySearchScreenError
 import com.fairair.app.ui.screens.search.VelocitySearchScreenLoading
 import com.fairair.app.ui.screens.landing.LandingScreen
+import com.fairair.app.ui.screens.landing.AICentricLandingScreen
 import com.fairair.app.ui.components.velocity.GlassCard
 import com.fairair.app.ui.theme.NotoKufiArabicFontFamily
 import com.fairair.app.ui.theme.SpaceGroteskFontFamily
@@ -133,7 +134,6 @@ private fun WasmAppContent() {
 
     // Chat state
     val chatUiState by chatScreenModel.uiState.collectAsState()
-    var showPilotAI by remember { mutableStateOf(false) }
 
     // Parse initial screen from URL hash
     fun parseScreenFromHash(): WasmScreen {
@@ -292,6 +292,18 @@ private fun WasmAppContent() {
             searchViewModel.setUserDetectedOrigin(originCode)
         }
     }
+    
+    // Update ChatScreenModel with location data for AI context
+    LaunchedEffect(userOriginCode, locationCoordinates) {
+        val originCode = userOriginCode
+        val coords = locationCoordinates
+        println("WasmApp: Updating ChatScreenModel with location - airport=$originCode, coords=$coords")
+        chatScreenModel.setUserLocation(
+            airportCode = originCode,
+            latitude = coords?.latitude,
+            longitude = coords?.longitude
+        )
+    }
 
     // Wrap in localization provider
     LocalizationProvider(localizationState) {
@@ -357,9 +369,18 @@ private fun WasmAppContent() {
                     ) {
                         when (currentScreen) {
                             WasmScreen.LANDING -> {
-                                LandingScreen(
-                                    onFlyNowClick = {
-                                        println("[WasmApp] onFlyNowClick - starting airplane transition to search")
+                                AICentricLandingScreen(
+                                    chatState = chatUiState,
+                                    onSendMessage = { message ->
+                                        val locale = if (localizationState.isRtl) "ar-SA" else "en-US"
+                                        chatScreenModel.sendMessage(message, locale)
+                                    },
+                                    onInputChange = { chatScreenModel.updateInputText(it) },
+                                    onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
+                                    onVoiceClick = { chatScreenModel.toggleListening() },
+                                    onClearChat = { chatScreenModel.clearChat() },
+                                    onManualBookClick = {
+                                        println("[WasmApp] Manual book click - navigating to search")
                                         pendingSearchNavigation = true
                                         showAirplaneTransition = true
                                     },
@@ -386,39 +407,19 @@ private fun WasmAppContent() {
                                         previousScreen = WasmScreen.LANDING
                                         currentScreen = WasmScreen.MEMBERSHIP
                                     },
-                                    onHotelsClick = {
-                                        com.fairair.app.util.UrlOpener.openUrl(
-                                            com.fairair.app.util.ExternalLinks.buildHotelSearchUrl()
-                                        )
-                                    },
-                                    onCarRentalClick = {
-                                        com.fairair.app.util.UrlOpener.openUrl(
-                                            com.fairair.app.util.ExternalLinks.buildCarRentalUrl()
-                                        )
-                                    },
                                     onHelpClick = {
                                         previousScreen = WasmScreen.LANDING
                                         currentScreen = WasmScreen.HELP
                                     },
-                                    onDealClick = { origin, destination ->
-                                        searchViewModel.preselectRoute(origin, destination)
-                                        pendingSearchNavigation = true
-                                        showAirplaneTransition = true
-                                    },
-                                    onDestinationClick = { destination ->
-                                        // When clicking a destination, use user's origin if detected
-                                        if (userOriginCode != null) {
-                                            searchViewModel.preselectRoute(userOriginCode!!, destination)
-                                        } else {
-                                            searchViewModel.preselectDestination(destination)
-                                        }
-                                        pendingSearchNavigation = true
-                                        showAirplaneTransition = true
+                                    onFlightSelected = { flightNumber ->
+                                        // When AI suggests a flight and user selects it
+                                        println("[WasmApp] AI flight selected: $flightNumber")
+                                        chatScreenModel.onSuggestionTapped("Select flight $flightNumber")
                                     },
                                     userName = currentUser?.firstName,
-                                    userOriginCity = userOriginCity,
-                                    popularDestinationCodes = popularDestinationCodes,
-                                    isRtl = localizationState.isRtl
+                                    isRtl = localizationState.isRtl,
+                                    locale = if (localizationState.isRtl) "ar-SA" else "en-US",
+                                    userLocationCode = userOriginCode // Pass detected location for dynamic background
                                 )
                             }
                             WasmScreen.LOGIN -> {
@@ -578,41 +579,6 @@ private fun WasmAppContent() {
                         }
                     )
                 }
-
-                // Pilot AI Orb - always visible when AI is closed
-                // Use zIndex to ensure FAB is always on top of screen content
-                if (!showPilotAI) {
-                    PilotOrb(
-                        onClick = { showPilotAI = true },
-                        isListening = chatUiState.isListening,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(24.dp)
-                            .zIndex(100f)
-                    )
-                }
-            }
-
-            // Pilot Full Screen AI with grid explosion animation
-            // The animation radiates from the FAB position (bottom-right)
-            GridExplosionTransition(
-                visible = showPilotAI,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                PilotFullScreen(
-                    visible = true,
-                    uiState = chatUiState,
-                    onSendMessage = { message ->
-                        val locale = if (localizationState.isRtl) "ar-SA" else "en-US"
-                        chatScreenModel.sendMessage(message, locale)
-                    },
-                    onInputChange = { chatScreenModel.updateInputText(it) },
-                    onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
-                    onClearChat = { chatScreenModel.clearChat() },
-                    onDismiss = { showPilotAI = false },
-                    onVoiceClick = { chatScreenModel.toggleListening() },
-                    locale = if (localizationState.isRtl) "ar-SA" else "en-US"
-                )
             }
         }
     }

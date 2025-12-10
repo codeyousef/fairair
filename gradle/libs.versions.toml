@@ -50,6 +50,9 @@ google-cloud-texttospeech = "2.54.0"
 # Multiplatform Settings
 multiplatform-settings = "1.2.0"
 
+# Coil (Image Loading)
+coil = "3.0.4"
+
 # Testing
 junit = "5.10.3"
 rest-assured = "5.5.0"
@@ -125,6 +128,10 @@ google-cloud-texttospeech = { module = "com.google.cloud:google-cloud-texttospee
 # Multiplatform Settings
 multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatform-settings" }
 multiplatform-settings-coroutines = { module = "com.russhwolf:multiplatform-settings-coroutines", version.ref = "multiplatform-settings" }
+
+# Coil (Image Loading - KMP)
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 
 # Testing
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }

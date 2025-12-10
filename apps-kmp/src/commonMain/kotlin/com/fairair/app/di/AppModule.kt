@@ -156,7 +156,7 @@ fun createScreenModelModule() = module {
         )
     }
 
-    // Chat Screen Model for Faris AI assistant
+    // Chat Screen Model for Pilot AI assistant
     // Singleton to maintain conversation state across screen changes
     single {
         ChatScreenModel(

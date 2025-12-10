@@ -103,7 +103,7 @@ class VertexAiProvider(
             .toLocalDateTime(TimeZone.of("Asia/Riyadh"))
             .date
             .toString()
-        return FarisPrompts.createSystemPrompt(today) + "\n\n" + createToolsPrompt()
+        return PilotPrompts.createSystemPrompt(today) + "\n\n" + createToolsPrompt()
     }
 
     /**
@@ -141,7 +141,7 @@ class VertexAiProvider(
      * we inject tool definitions into the system prompt.
      */
     private fun createToolsPrompt(): String {
-        val toolsJson = FarisTools.allTools.map { tool ->
+        val toolsJson = PilotTools.allTools.map { tool ->
             buildJsonObject {
                 put("name", tool.name)
                 put("description", tool.description)
@@ -289,16 +289,14 @@ CRITICAL RULES:
         }
         
         // If no code block, look for bare JSON that looks like a tool call
-        // Try to find any JSON object that contains "name" field (tool call indicator)
-        val jsonObjectPattern = Regex("""\{[^{}]*"name"[^{}]*\}""")
-        val jsonMatches = jsonObjectPattern.findAll(responseText)
-        
-        for (jsonMatch in jsonMatches) {
-            val parsed = tryParseToolCall(jsonMatch.value)
+        // Find JSON by looking for {"name": and extracting balanced braces
+        val toolCallJson = extractToolCallJson(responseText)
+        if (toolCallJson != null) {
+            val parsed = tryParseToolCall(toolCallJson)
             if (parsed != null) {
                 log.info("Detected bare JSON tool call: ${parsed.name}")
                 return AiChatResponse(
-                    text = responseText.replace(jsonMatch.value, "").trim(),
+                    text = responseText.replace(toolCallJson, "").trim(),
                     toolCalls = listOf(parsed),
                     isComplete = false
                 )
@@ -310,6 +308,40 @@ CRITICAL RULES:
             toolCalls = emptyList(),
             isComplete = true
         )
+    }
+    
+    /**
+     * Extract a JSON tool call object from text, handling nested braces.
+     * Looks for {"name": and extracts the balanced JSON object.
+     */
+    private fun extractToolCallJson(text: String): String? {
+        // Find the start of a potential tool call
+        val namePattern = Regex("""\{"name"\s*:""")
+        val match = namePattern.find(text) ?: return null
+        
+        val startIdx = match.range.first
+        var braceCount = 0
+        var endIdx = startIdx
+        
+        // Walk through the text counting braces
+        for (i in startIdx until text.length) {
+            when (text[i]) {
+                '{' -> braceCount++
+                '}' -> {
+                    braceCount--
+                    if (braceCount == 0) {
+                        endIdx = i + 1
+                        break
+                    }
+                }
+            }
+        }
+        
+        return if (braceCount == 0 && endIdx > startIdx) {
+            text.substring(startIdx, endIdx)
+        } else {
+            null
+        }
     }
     
     /**

@@ -11,7 +11,7 @@ import org.springframework.http.MediaType
 import java.util.UUID
 
 /**
- * E2E tests for the Faris AI Chat functionality.
+ * E2E tests for the Pilot AI Chat functionality.
  * 
  * Tests cover:
  * - Chat message sending and receiving
@@ -55,8 +55,8 @@ class ChatE2ETest : E2ETestBase() {
                 .expectBody()
                 .jsonPath("$.text").isNotEmpty
                 .jsonPath("$.text").value<String> { text ->
-                    assert(text.contains("Faris") || text.contains("help")) {
-                        "Expected greeting with Faris or help, got: $text"
+                    assert(text.contains("Pilot") || text.contains("help")) {
+                        "Expected greeting with Pilot or help, got: $text"
                     }
                 }
         }

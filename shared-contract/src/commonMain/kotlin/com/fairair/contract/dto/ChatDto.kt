@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Shared DTOs for AI Chat functionality.
- * Used by both backend (Spring) and frontend (KMP) for the Faris AI assistant.
+ * Used by both backend (Spring) and frontend (KMP) for the Pilot AI assistant.
  */
 
 // ============================================================================
@@ -44,6 +44,14 @@ data class ChatContextDto(
     val lastSearchId: String? = null,
     /** Last selected flight number */
     val lastFlightNumber: String? = null,
+    /** User's origin airport code based on geolocation (e.g., "JED", "RUH") */
+    val userOriginAirport: String? = null,
+    /** User's location latitude (if geolocation enabled) */
+    val userLatitude: Double? = null,
+    /** User's location longitude (if geolocation enabled) */
+    val userLongitude: Double? = null,
+    /** Whether geolocation permission was granted */
+    val hasLocationPermission: Boolean = false,
     /** Any additional context key-value pairs */
     val metadata: Map<String, String> = emptyMap()
 )
@@ -114,7 +122,27 @@ enum class ChatUiType {
 
     /** Confirmation that a booking was created */
     @SerialName("BOOKING_CONFIRMED")
-    BOOKING_CONFIRMED
+    BOOKING_CONFIRMED,
+
+    /** Display passenger entry form */
+    @SerialName("PASSENGER_FORM")
+    PASSENGER_FORM,
+
+    /** Display destination suggestions (weather-based, cheapest, etc.) */
+    @SerialName("DESTINATION_SUGGESTIONS")
+    DESTINATION_SUGGESTIONS,
+
+    /** Clarification needed - ask user for more info */
+    @SerialName("CLARIFICATION")
+    CLARIFICATION,
+
+    /** Display check-in flow */
+    @SerialName("CHECK_IN_FLOW")
+    CHECK_IN_FLOW,
+
+    /** Display payment form */
+    @SerialName("PAYMENT_FORM")
+    PAYMENT_FORM
 }
 
 // ============================================================================
@@ -219,6 +247,75 @@ data class BoardingPassPayloadDto(
     val seat: String,
     val boardingGroup: String?,
     val qrCodeData: String
+)
+
+/**
+ * Payload for DESTINATION_SUGGESTIONS UI type.
+ */
+@Serializable
+data class DestinationSuggestionsPayloadDto(
+    val suggestions: List<DestinationSuggestionDto>,
+    val suggestionType: String, // "weather", "cheapest", "popular", "quick_getaway"
+    val originCode: String? = null
+)
+
+/**
+ * A single destination suggestion.
+ */
+@Serializable
+data class DestinationSuggestionDto(
+    val destinationCode: String,
+    val destinationName: String,
+    val country: String,
+    val lowestPrice: Double? = null,
+    val currency: String = "SAR",
+    val weather: WeatherInfoDto? = null,
+    val flightDuration: String? = null,
+    val imageUrl: String? = null,
+    val reason: String? = null // e.g., "Sunny beaches", "35% off this week"
+)
+
+/**
+ * Weather information for a destination.
+ */
+@Serializable
+data class WeatherInfoDto(
+    val temperature: Int,
+    val condition: String, // "sunny", "cloudy", "rainy", etc.
+    val description: String // "Perfect beach weather"
+)
+
+/**
+ * Payload for PASSENGER_FORM UI type.
+ */
+@Serializable
+data class PassengerFormPayloadDto(
+    val flightNumber: String,
+    val flightDetails: FlightOptionDto,
+    val passengerCount: Int,
+    val savedTravelers: List<SavedTravelerDto> = emptyList(),
+    val fareFamily: String = "FLY"
+)
+
+/**
+ * Payload for CLARIFICATION UI type.
+ * Note: SavedTravelerDto is defined in ProfileDto.kt (same package)
+ */
+@Serializable
+data class ClarificationPayloadDto(
+    val question: String,
+    val options: List<ClarificationOptionDto> = emptyList(),
+    val inputType: String = "text", // "text", "date", "select", "number"
+    val context: String? = null // What info we already have
+)
+
+/**
+ * An option for clarification.
+ */
+@Serializable
+data class ClarificationOptionDto(
+    val label: String,
+    val value: String
 )
 
 // ============================================================================

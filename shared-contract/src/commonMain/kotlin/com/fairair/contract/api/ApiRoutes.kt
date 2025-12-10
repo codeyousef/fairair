@@ -520,7 +520,7 @@ object ApiRoutes {
     }
 
     /**
-     * AI Chat endpoints for the Faris assistant.
+     * AI Chat endpoints for the Pilot assistant.
      */
     object Chat {
         /**

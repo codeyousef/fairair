@@ -8,7 +8,7 @@ import kotlinx.coroutines.test.*
 import kotlin.test.*
 
 /**
- * E2E tests for Faris AI Chat functionality.
+ * E2E tests for Pilot AI Chat functionality.
  * 
  * Tests the API client layer for chat operations since ScreenModels
  * depend on Voyager's screenModelScope which requires special setup.
@@ -67,9 +67,9 @@ class ChatFlowTest {
 
         assertTrue(result is ApiResult.Success)
         val response = (result as ApiResult.Success).data
-        assertTrue(response.text.contains("Faris", ignoreCase = true) || 
+        assertTrue(response.text.contains("Pilot", ignoreCase = true) || 
                    response.text.contains("help", ignoreCase = true),
-            "Expected greeting with Faris or help offer")
+            "Expected greeting with Pilot or help offer")
         assertEquals("en", response.detectedLanguage)
     }
 
@@ -113,8 +113,8 @@ class ChatFlowTest {
 
         assertTrue(result is ApiResult.Success)
         val response = (result as ApiResult.Success).data
-        assertTrue(response.text.contains("فارس") || response.text.contains("هلا"),
-            "Expected Arabic response with Faris name or greeting")
+        assertTrue(response.text.contains("بايلوت") || response.text.contains("هلا"),
+            "Expected Arabic response with Pilot name or greeting")
         assertEquals("ar", response.detectedLanguage)
     }
 

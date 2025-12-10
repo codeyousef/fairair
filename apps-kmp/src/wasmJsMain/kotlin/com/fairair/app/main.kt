@@ -17,6 +17,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.window.CanvasBasedWindow
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.annotation.ExperimentalCoilApi
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.network.ktor3.KtorNetworkFetcherFactory
+import coil3.request.crossfade
 import com.fairair.app.di.DefaultPlatformConfig
 import com.fairair.app.di.PlatformConfig
 import com.fairair.app.di.appModules
@@ -149,7 +155,7 @@ private suspend fun preloadFonts() {
 /**
  * Main entry point for the WasmJs application.
  */
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalCoilApi::class)
 fun main() {
     // Initialize Koin
     startKoin {
@@ -161,6 +167,16 @@ fun main() {
         canvasElementId = "ComposeTarget",
         title = "FairAir"
     ) {
+        // Configure Coil for image loading with Ktor
+        setSingletonImageLoaderFactory { context ->
+            ImageLoader.Builder(context)
+                .components {
+                    add(KtorNetworkFetcherFactory())
+                }
+                .crossfade(true)
+                .build()
+        }
+        
         var fontsReady by remember { mutableStateOf(false) }
         var loadError by remember { mutableStateOf<String?>(null) }
         

@@ -19,7 +19,8 @@ class AiToolExecutor(
     private val flightService: FlightService,
     private val manageBookingService: ManageBookingService,
     private val bookingService: BookingService,
-    private val profileService: ProfileService
+    private val profileService: ProfileService,
+    private val weatherService: WeatherService
 ) {
     private val log = LoggerFactory.getLogger(AiToolExecutor::class.java)
     
@@ -27,6 +28,46 @@ class AiToolExecutor(
         ignoreUnknownKeys = true
         isLenient = true
     }
+    
+    /**
+     * City metadata for destination suggestions.
+     * Maps airport code to (cityName, country, imageUrl)
+     */
+    private val cityMetadata = mapOf(
+        // Saudi Arabia
+        "RUH" to Triple("Riyadh", "Saudi Arabia", "https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?w=400"),
+        "JED" to Triple("Jeddah", "Saudi Arabia", "https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?w=400"),
+        "DMM" to Triple("Dammam", "Saudi Arabia", "https://images.unsplash.com/photo-1578895101408-1a36b834405b?w=400"),
+        "MED" to Triple("Madinah", "Saudi Arabia", "https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?w=400"),
+        "AHB" to Triple("Abha", "Saudi Arabia", "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400"),
+        "GIZ" to Triple("Jazan", "Saudi Arabia", "https://images.unsplash.com/photo-1559827291-72ee739d0d9a?w=400"),
+        "TUU" to Triple("Tabuk", "Saudi Arabia", "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400"),
+        "TIF" to Triple("Taif", "Saudi Arabia", "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400"),
+        "ELQ" to Triple("Qassim", "Saudi Arabia", "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400"),
+        "AJF" to Triple("Al Jouf", "Saudi Arabia", "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400"),
+        // UAE
+        "DXB" to Triple("Dubai", "UAE", "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400"),
+        "AUH" to Triple("Abu Dhabi", "UAE", "https://images.unsplash.com/photo-1512632578888-169bbbc64f33?w=400"),
+        "SHJ" to Triple("Sharjah", "UAE", "https://images.unsplash.com/photo-1578895101408-1a36b834405b?w=400"),
+        // Egypt
+        "CAI" to Triple("Cairo", "Egypt", "https://images.unsplash.com/photo-1572252009286-268acec5ca0a?w=400"),
+        "SSH" to Triple("Sharm El Sheikh", "Egypt", "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=400"),
+        "HRG" to Triple("Hurghada", "Egypt", "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=400"),
+        // Jordan
+        "AMM" to Triple("Amman", "Jordan", "https://images.unsplash.com/photo-1580834341580-8c17a3a630ca?w=400"),
+        // Turkey
+        "IST" to Triple("Istanbul", "Turkey", "https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?w=400"),
+        // Bahrain
+        "BAH" to Triple("Bahrain", "Bahrain", "https://images.unsplash.com/photo-1559827291-72ee739d0d9a?w=400"),
+        // Kuwait
+        "KWI" to Triple("Kuwait City", "Kuwait", "https://images.unsplash.com/photo-1559827291-72ee739d0d9a?w=400"),
+        // Qatar
+        "DOH" to Triple("Doha", "Qatar", "https://images.unsplash.com/photo-1559827291-72ee739d0d9a?w=400"),
+        // Oman
+        "MCT" to Triple("Muscat", "Oman", "https://images.unsplash.com/photo-1559827291-72ee739d0d9a?w=400"),
+        // Morocco
+        "CMN" to Triple("Casablanca", "Morocco", "https://images.unsplash.com/photo-1489749798305-4fea3ae63d43?w=400")
+    )
 
     /**
      * Execute a tool by name with the given arguments.
@@ -47,7 +88,7 @@ class AiToolExecutor(
         
         return try {
             when (toolName) {
-                "search_flights" -> searchFlights(args)
+                "search_flights" -> searchFlights(args, context)
                 "select_flight" -> selectFlight(args)
                 "get_saved_travelers" -> getSavedTravelers(args, context)
                 "create_booking" -> createBooking(args, context)
@@ -62,6 +103,9 @@ class AiToolExecutor(
                 "add_baggage" -> addBaggage(args)
                 "check_in" -> checkIn(args)
                 "get_boarding_pass" -> getBoardingPass(args)
+                "find_weather_destinations" -> findWeatherDestinations(args, context)
+                "find_cheapest_flights" -> findCheapestFlights(args, context)
+                "get_popular_destinations" -> getPopularDestinations(args, context)
                 else -> {
                     log.warn("Unknown tool: $toolName")
                     ToolExecutionResult(
@@ -77,8 +121,17 @@ class AiToolExecutor(
         }
     }
 
-    private suspend fun searchFlights(args: JsonObject): ToolExecutionResult {
-        val origin = args["origin"]?.jsonPrimitive?.contentOrNull ?: "RUH"
+    private suspend fun searchFlights(args: JsonObject, context: ChatContextDto?): ToolExecutionResult {
+        // Get origin from args, or from context if user has location, otherwise require it
+        val originArg = args["origin"]?.jsonPrimitive?.contentOrNull
+        val origin = originArg 
+            ?: context?.userOriginAirport
+            ?: return ToolExecutionResult(
+                data = mapOf(
+                    "error" to "origin_required",
+                    "message" to "I need to know where you're flying from. Could you tell me your departure city, or enable location services so I can detect it automatically?"
+                )
+            )
         val destination = args["destination"]?.jsonPrimitive?.content 
             ?: return ToolExecutionResult(data = mapOf("error" to "destination is required"))
         val dateStr = args["date"]?.jsonPrimitive?.contentOrNull
@@ -570,6 +623,299 @@ class AiToolExecutor(
                 "qrCode" to "M1${pnr}${passengerName.take(3).uppercase()}"
             ),
             uiType = ChatUiType.BOARDING_PASS
+        )
+    }
+
+    /**
+     * Find destinations with nice weather from the user's origin.
+     * Returns destinations with weather information for vacation planning.
+     * Uses real weather data from Open-Meteo API.
+     */
+    private suspend fun findWeatherDestinations(args: JsonObject, context: ChatContextDto?): ToolExecutionResult {
+        val originArg = args["origin"]?.jsonPrimitive?.contentOrNull
+        val origin = originArg
+            ?: context?.userOriginAirport
+            ?: return ToolExecutionResult(
+                data = mapOf(
+                    "error" to "origin_required",
+                    "message" to "I need to know where you're located to find destinations with nice weather. Could you tell me your city, or enable location services?"
+                )
+            )
+        val weatherPreference = args["weather_preference"]?.jsonPrimitive?.contentOrNull ?: "sunny"
+        val maxResults = args["max_results"]?.jsonPrimitive?.intOrNull ?: 5
+        
+        log.info("Finding weather destinations from $origin with preference: $weatherPreference")
+        
+        // Get available routes from origin
+        val routeMap = navitaireClient.getRouteMap()
+        val destinations = routeMap.getDestinationsFor(AirportCode(origin.uppercase()))
+            .map { it.value }
+            .distinct()
+        
+        // Fetch real weather data for destinations
+        val weatherDataMap = weatherService.getWeatherForCities(destinations)
+        
+        // Filter destinations based on weather preference
+        val filteredDestinations = destinations.mapNotNull { code ->
+            weatherDataMap[code]?.let { weather ->
+                val matches = when (weatherPreference.lowercase()) {
+                    "sunny" -> weather.condition == "sunny" || weather.condition == "partly_cloudy"
+                    "warm" -> weather.temperature >= 25
+                    "cool" -> weather.temperature < 20
+                    "beach" -> weather.condition == "sunny" && weather.temperature >= 25
+                    else -> true
+                }
+                if (matches) Pair(code, weather) else null
+            }
+        }.take(maxResults)
+        
+        // Get prices for filtered destinations
+        val today = Clock.System.now().toLocalDateTime(TimeZone.of("Asia/Riyadh")).date
+        val searchDate = today.plus(1, DateTimeUnit.DAY)
+        
+        val suggestionsWithPrices = buildList {
+            for ((code, weather) in filteredDestinations) {
+                // Get lowest price for this destination
+                val request = FlightSearchRequest(
+                    origin = AirportCode(origin.uppercase()),
+                    destination = AirportCode(code),
+                    departureDate = searchDate,
+                    passengers = PassengerCounts(adults = 1, children = 0, infants = 0)
+                )
+                val searchResult = try {
+                    navitaireClient.searchFlights(request)
+                } catch (e: Exception) {
+                    null
+                }
+                val lowestPrice = searchResult?.flights?.flatMap { it.fareFamilies }?.minOfOrNull { it.price.amountAsDouble }
+                
+                // Get city metadata (country and image)
+                val metadata = cityMetadata[code]
+                
+                add(mapOf(
+                    "destinationCode" to code,
+                    "destinationName" to (metadata?.first ?: weather.cityName),
+                    "country" to (metadata?.second ?: ""),
+                    "imageUrl" to (metadata?.third ?: ""),
+                    "temperature" to weather.temperature,
+                    "weatherCondition" to weather.condition,
+                    "weatherDescription" to weather.description,
+                    "lowestPrice" to lowestPrice,
+                    "currency" to "SAR",
+                    "reason" to "${weather.temperature}°C - ${weather.description}"
+                ))
+            }
+        }
+        
+        return ToolExecutionResult(
+            data = mapOf(
+                "suggestionType" to "weather",
+                "originCode" to origin.uppercase(),
+                "suggestions" to suggestionsWithPrices,
+                "count" to suggestionsWithPrices.size,
+                "preference" to weatherPreference
+            ),
+            uiType = ChatUiType.DESTINATION_SUGGESTIONS
+        )
+    }
+
+    /**
+     * Find the cheapest flights from origin to any destination.
+     * Useful for budget travelers looking for deals.
+     */
+    private suspend fun findCheapestFlights(args: JsonObject, context: ChatContextDto?): ToolExecutionResult {
+        val origin = args["origin"]?.jsonPrimitive?.contentOrNull 
+            ?: context?.userOriginAirport
+            ?: return ToolExecutionResult(
+                data = mapOf("error" to "I need to know where you're flying from. Please share your location or tell me your departure city."),
+                uiType = null
+            )
+        val maxResults = args["max_results"]?.jsonPrimitive?.intOrNull ?: 5
+        
+        val today = Clock.System.now().toLocalDateTime(TimeZone.of("Asia/Riyadh")).date
+        val dateFrom = args["date_from"]?.jsonPrimitive?.contentOrNull?.let { parseFlexibleDate(it) }
+            ?: today.plus(1, DateTimeUnit.DAY)
+        val dateTo = args["date_to"]?.jsonPrimitive?.contentOrNull?.let { parseFlexibleDate(it) }
+            ?: today.plus(7, DateTimeUnit.DAY)
+        
+        log.info("Finding cheapest flights from $origin between $dateFrom and $dateTo")
+        
+        // Get all available destinations from this origin
+        val routeMap = navitaireClient.getRouteMap()
+        val destinations = routeMap.getDestinationsFor(AirportCode(origin.uppercase()))
+            .map { it.value }
+            .distinct()
+        
+        // Destination names for display
+        val destinationNames = mapOf(
+            "DXB" to "Dubai",
+            "JED" to "Jeddah",
+            "RUH" to "Riyadh",
+            "MED" to "Madinah",
+            "DMM" to "Dammam",
+            "CAI" to "Cairo",
+            "AMM" to "Amman",
+            "BAH" to "Bahrain",
+            "KWI" to "Kuwait City",
+            "MCT" to "Muscat",
+            "IST" to "Istanbul",
+            "BKK" to "Bangkok"
+        )
+        
+        // Search each destination and find lowest prices
+        val cheapestFlightsList = mutableListOf<Map<String, Any?>>()
+        for (destCode in destinations) {
+            try {
+                val request = FlightSearchRequest(
+                    origin = AirportCode(origin.uppercase()),
+                    destination = AirportCode(destCode),
+                    departureDate = dateFrom,
+                    passengers = PassengerCounts(adults = 1, children = 0, infants = 0)
+                )
+                val result = navitaireClient.searchFlights(request)
+                val cheapestFare = result.flights.flatMap { it.fareFamilies }.minByOrNull { it.price.amountAsDouble }
+                val cheapestFlight = result.flights.find { fl -> fl.fareFamilies.any { ff -> ff.price == cheapestFare?.price } }
+                
+                // Get city metadata
+                val metadata = cityMetadata[destCode]
+                
+                if (cheapestFlight != null && cheapestFare != null) {
+                    cheapestFlightsList.add(mapOf(
+                        "destinationCode" to destCode,
+                        "destinationName" to (metadata?.first ?: destCode),
+                        "country" to (metadata?.second ?: ""),
+                        "imageUrl" to (metadata?.third ?: ""),
+                        "flightNumber" to cheapestFlight.flightNumber,
+                        "departureTime" to cheapestFlight.departureTime.toString(),
+                        "arrivalTime" to cheapestFlight.arrivalTime.toString(),
+                        "duration" to "${cheapestFlight.durationMinutes} minutes",
+                        "lowestPrice" to cheapestFare.price.amountAsDouble,
+                        "currency" to "SAR",
+                        "fareFamily" to cheapestFare.code.name
+                    ))
+                }
+            } catch (e: Exception) {
+                log.warn("Failed to search flights to $destCode: ${e.message}")
+            }
+        }
+        val cheapestFlights = cheapestFlightsList
+            .sortedBy { (it["lowestPrice"] as? Double) ?: Double.MAX_VALUE }
+            .take(maxResults)
+        
+        return ToolExecutionResult(
+            data = mapOf(
+                "suggestionType" to "cheapest",
+                "originCode" to origin.uppercase(),
+                "dateRange" to "$dateFrom to $dateTo",
+                "suggestions" to cheapestFlights,
+                "count" to cheapestFlights.size
+            ),
+            uiType = ChatUiType.DESTINATION_SUGGESTIONS
+        )
+    }
+
+    /**
+     * Get popular destinations from origin.
+     * Returns trending/popular destinations for general browsing.
+     */
+    private suspend fun getPopularDestinations(args: JsonObject, context: ChatContextDto?): ToolExecutionResult {
+        val origin = args["origin"]?.jsonPrimitive?.contentOrNull 
+            ?: context?.userOriginAirport
+            ?: return ToolExecutionResult(
+                data = mapOf("error" to "I need to know where you're flying from. Please share your location or tell me your departure city."),
+                uiType = null
+            )
+        val travelType = args["travel_type"]?.jsonPrimitive?.contentOrNull
+        val maxResults = args["max_results"]?.jsonPrimitive?.intOrNull ?: 6
+        
+        log.info("Getting popular destinations from $origin, type: $travelType")
+        
+        // Popular destinations with metadata
+        data class DestinationInfo(
+            val code: String,
+            val name: String,
+            val country: String,
+            val type: List<String>, // leisure, business, family, adventure
+            val description: String,
+            val imageHint: String
+        )
+        
+        val popularDestinations = listOf(
+            DestinationInfo("DXB", "Dubai", "UAE", listOf("leisure", "business", "family"), "Modern luxury and entertainment", "dubai-skyline"),
+            DestinationInfo("JED", "Jeddah", "Saudi Arabia", listOf("leisure", "business"), "Coastal city with rich history", "jeddah-corniche"),
+            DestinationInfo("CAI", "Cairo", "Egypt", listOf("leisure", "family", "adventure"), "Ancient pyramids and history", "cairo-pyramids"),
+            DestinationInfo("IST", "Istanbul", "Turkey", listOf("leisure", "family"), "Where East meets West", "istanbul-mosque"),
+            DestinationInfo("BAH", "Bahrain", "Bahrain", listOf("leisure", "business"), "Island getaway nearby", "bahrain-skyline"),
+            DestinationInfo("AMM", "Amman", "Jordan", listOf("leisure", "adventure"), "Gateway to Petra", "amman-citadel"),
+            DestinationInfo("MLE", "Maldives", "Maldives", listOf("leisure"), "Paradise island escape", "maldives-beach"),
+            DestinationInfo("BKK", "Bangkok", "Thailand", listOf("leisure", "family", "adventure"), "Vibrant culture and cuisine", "bangkok-temple"),
+            DestinationInfo("MCT", "Muscat", "Oman", listOf("leisure", "adventure"), "Scenic coastal beauty", "muscat-mosque"),
+            DestinationInfo("KWI", "Kuwait City", "Kuwait", listOf("business"), "Modern Arabian city", "kuwait-towers")
+        )
+        
+        // Filter by travel type if specified
+        val filtered = if (travelType != null) {
+            popularDestinations.filter { travelType.lowercase() in it.type }
+        } else {
+            popularDestinations
+        }
+        
+        // Get routes from origin to check availability
+        val routeMap = navitaireClient.getRouteMap()
+        val availableDestinations = routeMap.getDestinationsFor(AirportCode(origin.uppercase()))
+            .map { it.value }
+            .toSet()
+        
+        // Filter to only available destinations and get prices
+        val today = Clock.System.now().toLocalDateTime(TimeZone.of("Asia/Riyadh")).date
+        val searchDate = today.plus(3, DateTimeUnit.DAY) // Search for 3 days out
+        
+        val availableFiltered = filtered
+            .filter { it.code in availableDestinations }
+            .take(maxResults)
+        
+        val suggestions = buildList {
+            for (dest in availableFiltered) {
+                // Get price for this destination
+                val price = try {
+                    val request = FlightSearchRequest(
+                        origin = AirportCode(origin.uppercase()),
+                        destination = AirportCode(dest.code),
+                        departureDate = searchDate,
+                        passengers = PassengerCounts(adults = 1, children = 0, infants = 0)
+                    )
+                    val result = navitaireClient.searchFlights(request)
+                    result.flights.flatMap { it.fareFamilies }.minOfOrNull { it.price.amountAsDouble }
+                } catch (e: Exception) {
+                    null
+                }
+                
+                // Get image URL from metadata
+                val imageUrl = cityMetadata[dest.code]?.third ?: ""
+                
+                add(mapOf(
+                    "destinationCode" to dest.code,
+                    "destinationName" to dest.name,
+                    "country" to dest.country,
+                    "imageUrl" to imageUrl,
+                    "lowestPrice" to price,
+                    "currency" to "SAR",
+                    "description" to dest.description,
+                    "travelTypes" to dest.type,
+                    "reason" to dest.description
+                ))
+            }
+        }
+        
+        return ToolExecutionResult(
+            data = mapOf(
+                "suggestionType" to "popular",
+                "originCode" to origin.uppercase(),
+                "travelType" to (travelType ?: "all"),
+                "suggestions" to suggestions,
+                "count" to suggestions.size
+            ),
+            uiType = ChatUiType.DESTINATION_SUGGESTIONS
         )
     }
 

@@ -4,17 +4,21 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
 /**
- * Tool definitions for the Faris AI assistant.
+ * Tool definitions for the Pilot AI assistant.
  * These define the capabilities the AI can invoke.
  */
-object FarisTools {
+object PilotTools {
 
     /**
      * Search for available flights.
      */
     val searchFlights = ToolDefinition(
         name = "search_flights",
-        description = "Finds available flights between two cities on a specific date. Use this when the user wants to search for or book a new flight.",
+        description = """Finds available flights to a SPECIFIC destination. Use this when:
+- User wants to fly TO a specific city (e.g., "flight to Riyadh", "cheapest flight to Dubai")
+- User mentions a destination city/airport
+- User wants to book a flight to somewhere specific
+Always use this when a destination is mentioned, even if they say "cheapest".""",
         parameters = mapOf(
             "type" to "object",
             "properties" to mapOf(
@@ -373,6 +377,108 @@ DO NOT call select_flight or search_flights when user confirms - call create_boo
     )
 
     /**
+     * Find destinations with nice weather.
+     * Used when user asks for destinations based on weather preferences.
+     */
+    val findWeatherDestinations = ToolDefinition(
+        name = "find_weather_destinations",
+        description = """Finds destinations with good weather conditions from the user's origin.
+Use this when user asks for:
+- "destinations with nice weather"
+- "where can I go for sun/beach"
+- "sunny destinations"
+- "closest place with good weather"
+The tool returns destinations with current weather info.""",
+        parameters = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "origin" to mapOf(
+                    "type" to "string",
+                    "description" to "IATA airport code for departure city (default: RUH)"
+                ),
+                "weather_preference" to mapOf(
+                    "type" to "string",
+                    "description" to "Weather preference: 'sunny', 'warm', 'cool', 'any'. Default: 'sunny'"
+                ),
+                "max_results" to mapOf(
+                    "type" to "integer",
+                    "description" to "Maximum number of destinations to return (default: 5)"
+                )
+            ),
+            "required" to listOf<String>()
+        )
+    )
+
+    /**
+     * Find the cheapest flights from origin.
+     * Used when user asks for budget-friendly options WITHOUT specifying a destination.
+     */
+    val findCheapestFlights = ToolDefinition(
+        name = "find_cheapest_flights",
+        description = """Finds the cheapest available flights from the user's origin to ANY destination (exploring options).
+ONLY use this when user does NOT specify a destination:
+- "cheapest flights" (no destination mentioned)
+- "where can I fly cheap"
+- "best deals from Jeddah"
+DO NOT use this if user mentions a destination like "to Riyadh" - use search_flights instead.
+Returns a list of destinations sorted by lowest price.""",
+        parameters = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "origin" to mapOf(
+                    "type" to "string",
+                    "description" to "IATA airport code for departure city (default: RUH)"
+                ),
+                "date_from" to mapOf(
+                    "type" to "string",
+                    "description" to "Start date range in YYYY-MM-DD format (default: tomorrow)"
+                ),
+                "date_to" to mapOf(
+                    "type" to "string",
+                    "description" to "End date range in YYYY-MM-DD format (default: 7 days from now)"
+                ),
+                "max_results" to mapOf(
+                    "type" to "integer",
+                    "description" to "Maximum number of destinations to return (default: 5)"
+                )
+            ),
+            "required" to listOf<String>()
+        )
+    )
+
+    /**
+     * Get popular destinations from origin.
+     * Used for general destination suggestions.
+     */
+    val getPopularDestinations = ToolDefinition(
+        name = "get_popular_destinations",
+        description = """Gets popular destination suggestions from the user's origin.
+Use this when user asks:
+- "where should I travel"
+- "suggest destinations"
+- "popular places to visit"
+Returns trending destinations with sample prices.""",
+        parameters = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "origin" to mapOf(
+                    "type" to "string",
+                    "description" to "IATA airport code for departure city (default: RUH)"
+                ),
+                "travel_type" to mapOf(
+                    "type" to "string",
+                    "description" to "Type of travel: 'leisure', 'business', 'family', 'adventure'. Default: any"
+                ),
+                "max_results" to mapOf(
+                    "type" to "integer",
+                    "description" to "Maximum number of destinations to return (default: 6)"
+                )
+            ),
+            "required" to listOf<String>()
+        )
+    )
+
+    /**
      * All available tools for the AI assistant.
      */
     val allTools: List<ToolDefinition> = listOf(
@@ -390,7 +496,10 @@ DO NOT call select_flight or search_flights when user confirms - call create_boo
         addMeal,
         addBaggage,
         checkIn,
-        getBoardingPass
+        getBoardingPass,
+        findWeatherDestinations,
+        findCheapestFlights,
+        getPopularDestinations
     )
 }
 

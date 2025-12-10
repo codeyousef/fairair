@@ -39,19 +39,35 @@ class ChatService(
     suspend fun processMessage(request: ChatMessageRequestDto): ChatResponseDto {
         log.info("Processing chat message for session ${request.sessionId}")
         
-        // Include locale hint in the message if provided and it's English
-        // This helps the AI maintain language consistency
-        val messageWithLocale = if (request.locale?.startsWith("en") == true) {
-            "[User language: English]\n${request.message}"
-        } else if (request.locale?.startsWith("ar") == true) {
-            "[User language: Arabic]\n${request.message}"
+        // Build context hints for the AI
+        val contextHints = buildList {
+            // Language hint
+            if (request.locale?.startsWith("en") == true) {
+                add("[User language: English]")
+            } else if (request.locale?.startsWith("ar") == true) {
+                add("[User language: Arabic]")
+            }
+            
+            // User location context - critical for origin detection
+            val originAirport = request.context?.userOriginAirport
+            if (originAirport != null) {
+                add("[userOriginAirport: $originAirport]")
+                log.info("User origin airport from context: $originAirport")
+            } else {
+                add("[userOriginAirport: NOT_AVAILABLE - must ask user for location]")
+                log.info("User origin airport not available in context")
+            }
+        }
+        
+        val messageWithContext = if (contextHints.isNotEmpty()) {
+            contextHints.joinToString("\n") + "\n${request.message}"
         } else {
             request.message
         }
         
         var response = aiProvider.chat(
             sessionId = request.sessionId,
-            userMessage = messageWithLocale
+            userMessage = messageWithContext
         )
         
         var iterations = 0

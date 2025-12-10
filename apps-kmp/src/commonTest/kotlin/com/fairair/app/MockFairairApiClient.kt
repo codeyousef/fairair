@@ -187,7 +187,7 @@ class MockFairairApiClient(
             message.contains("hello", ignoreCase = true) ||
             message.contains("hi", ignoreCase = true) ||
             message.contains("help", ignoreCase = true) -> ChatResponseDto(
-                text = "Hello! I'm Faris, your FareAir assistant. I can help you:\n\n" +
+                text = "Hello! I'm Pilot, your FareAir assistant. I can help you:\n\n" +
                        "• Search for flights\n" +
                        "• Manage your booking\n" +
                        "• Change seats\n" +

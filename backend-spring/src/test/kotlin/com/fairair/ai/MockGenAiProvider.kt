@@ -109,7 +109,7 @@ class MockGenAiProvider : GenAiProvider {
             userMessage.contains("hi", ignoreCase = true) ||
             userMessage.contains("help", ignoreCase = true) -> {
                 AiChatResponse(
-                    text = "Hello! I'm Faris, your FareAir assistant. I can help you:\n\n" +
+                    text = "Hello! I'm Pilot, your FareAir assistant. I can help you:\n\n" +
                            "• Search for flights\n" +
                            "• Manage your booking\n" +
                            "• Change seats\n" +

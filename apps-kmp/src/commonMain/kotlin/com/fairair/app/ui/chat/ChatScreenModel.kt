@@ -54,7 +54,7 @@ data class ChatUiState(
 )
 
 /**
- * ScreenModel for the Faris AI chat functionality.
+ * ScreenModel for the Pilot AI chat functionality.
  * Manages conversation state, API calls, and voice interaction.
  */
 class ChatScreenModel(
@@ -75,6 +75,12 @@ class ChatScreenModel(
 
     // Current context (PNR, screen, etc.)
     private var currentContext: ChatContextDto? = null
+    
+    // User location state for origin detection
+    private var userOriginAirport: String? = null
+    private var userLatitude: Double? = null
+    private var userLongitude: Double? = null
+    private var locationRequested: Boolean = false
     
     init {
         // Collect voice state changes
@@ -110,6 +116,30 @@ class ChatScreenModel(
     }
 
     /**
+     * Sets the user's location for origin airport detection.
+     * @param airportCode The detected nearest airport code (e.g., "JED", "RUH")
+     * @param latitude User's latitude
+     * @param longitude User's longitude
+     */
+    fun setUserLocation(airportCode: String?, latitude: Double?, longitude: Double?) {
+        userOriginAirport = airportCode
+        userLatitude = latitude
+        userLongitude = longitude
+        locationRequested = true
+        println("ChatScreenModel: Location set - airport=$airportCode, lat=$latitude, lon=$longitude")
+    }
+
+    /**
+     * Returns true if location has been requested (regardless of result).
+     */
+    fun isLocationRequested(): Boolean = locationRequested
+
+    /**
+     * Returns the user's origin airport code, or null if unknown.
+     */
+    fun getUserOriginAirport(): String? = userOriginAirport
+
+    /**
      * Builds the full context for the current message, including user info and search state.
      */
     private fun buildFullContext(): ChatContextDto {
@@ -124,6 +154,9 @@ class ChatScreenModel(
             userEmail = user?.email,
             lastSearchId = searchResult?.searchId,
             lastFlightNumber = selectedFlight?.flight?.flightNumber,
+            userOriginAirport = userOriginAirport,
+            userLatitude = userLatitude,
+            userLongitude = userLongitude,
             metadata = currentContext?.metadata ?: emptyMap()
         )
     }

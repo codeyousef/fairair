@@ -462,11 +462,11 @@ class FairairApiClient(
     }
 
     // ============================================================================
-    // Chat / Faris AI Assistant Endpoints
+    // Chat / Pilot AI Assistant Endpoints
     // ============================================================================
 
     /**
-     * Sends a message to the Faris AI assistant.
+     * Sends a message to the Pilot AI assistant.
      * @param sessionId Unique session ID for conversation continuity
      * @param message The user's message
      * @param locale User's locale (e.g., "en-US", "ar-SA")

@@ -1,7 +1,7 @@
 package com.fairair.integration
 
-import com.fairair.ai.FarisPrompts
-import com.fairair.ai.FarisTools
+import com.fairair.ai.PilotPrompts
+import com.fairair.ai.PilotTools
 import com.fairair.contract.dto.ChatContextDto
 import com.fairair.contract.dto.ChatUiType
 import com.fairair.service.AiToolExecutor
@@ -148,7 +148,7 @@ class AiToolExecutorIntegrationTest {
         @Test
         @DisplayName("create_booking description should mention confirmation context")
         fun createBookingDescriptionShouldMentionConfirmation() {
-            val createBookingTool = FarisTools.createBooking
+            val createBookingTool = PilotTools.createBooking
             
             assertTrue(
                 createBookingTool.description.contains("yes", ignoreCase = true) ||
@@ -161,7 +161,7 @@ class AiToolExecutorIntegrationTest {
         @Test
         @DisplayName("select_flight description should clarify its purpose")
         fun selectFlightDescriptionShouldClarifyPurpose() {
-            val selectFlightTool = FarisTools.selectFlight
+            val selectFlightTool = PilotTools.selectFlight
             
             assertTrue(
                 selectFlightTool.description.contains("NOT", ignoreCase = false) ||
@@ -179,7 +179,7 @@ class AiToolExecutorIntegrationTest {
         @Test
         @DisplayName("System prompt should prioritize create_booking for confirmations")
         fun systemPromptShouldPrioritizeCreateBooking() {
-            val prompt = FarisPrompts.systemPrompt
+            val prompt = PilotPrompts.systemPrompt
             
             // Check that the prompt mentions the correct behavior
             assertTrue(
@@ -197,7 +197,7 @@ class AiToolExecutorIntegrationTest {
         @Test
         @DisplayName("System prompt should warn against search on confirmation")
         fun systemPromptShouldWarnAgainstSearch() {
-            val prompt = FarisPrompts.systemPrompt
+            val prompt = PilotPrompts.systemPrompt
             
             assertTrue(
                 prompt.contains("DO NOT") && 
@@ -209,7 +209,7 @@ class AiToolExecutorIntegrationTest {
         @Test
         @DisplayName("System prompt should have HIGHEST PRIORITY section")
         fun systemPromptShouldHaveHighestPrioritySection() {
-            val prompt = FarisPrompts.systemPrompt
+            val prompt = PilotPrompts.systemPrompt
             
             assertTrue(
                 prompt.contains("HIGHEST PRIORITY", ignoreCase = true),

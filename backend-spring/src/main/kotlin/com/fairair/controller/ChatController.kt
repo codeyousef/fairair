@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 
 /**
- * REST controller for the Faris AI assistant chat endpoints.
+ * REST controller for the Pilot AI assistant chat endpoints.
  * 
  * Handles:
  * - Message exchange with the AI (with tool execution)
@@ -28,7 +28,7 @@ class ChatController(
     /**
      * POST /api/v1/chat/message
      *
-     * Sends a message to the Faris AI assistant and receives a response.
+     * Sends a message to the Pilot AI assistant and receives a response.
      * The AI may execute tools (search flights, get booking, etc.) to answer.
      * 
      * @param request The chat message with sessionId

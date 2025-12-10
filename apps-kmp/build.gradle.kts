@@ -74,6 +74,10 @@ kotlin {
                 implementation(libs.multiplatform.settings)
                 implementation(libs.multiplatform.settings.coroutines)
 
+                // Coil for async image loading
+                implementation(libs.coil.compose)
+                implementation(libs.coil.network.ktor3)
+
                 implementation(project(":shared-contract"))
             }
         }
