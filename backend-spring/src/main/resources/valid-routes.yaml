@@ -1,0 +1,7 @@
+routes:
+  - origin: RUH
+    destinations: [JED, DMM, DXB, CAI]
+  - origin: JED
+    destinations: [RUH, DMM, CAI]
+  - origin: DMM
+    destinations: [RUH, JED]

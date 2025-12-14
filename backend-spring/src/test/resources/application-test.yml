@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: fairair-backend-test
+  config:
+    import: "optional:classpath:ai-config.yaml"
   
   # Use in-memory H2 for tests
   r2dbc:

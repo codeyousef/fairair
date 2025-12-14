@@ -85,3 +85,46 @@ VALUES ('payment-001', 'user-002', 'CARD', '4242', 'VISA', 'Jane Doe', 12, 2027,
 MERGE INTO saved_payment_methods (id, user_id, type, card_last_four, card_brand, card_holder_name, expiry_month, expiry_year, nickname, is_default, payment_token, created_at)
 KEY(id)
 VALUES ('payment-002', 'user-002', 'CARD', '5555', 'MASTERCARD', 'Jane Doe', 6, 2026, 'Family Mastercard', FALSE, 'tok_mc_family_001', CURRENT_TIMESTAMP);
+
+-- ============================================================================
+-- AI REFERENCE DATA (KOOG)
+-- ============================================================================
+
+MERGE INTO airports (code, name_en, name_ar) KEY(code) VALUES ('RUH', 'Riyadh', 'الرياض');
+MERGE INTO airports (code, name_en, name_ar) KEY(code) VALUES ('JED', 'Jeddah', 'جدة');
+MERGE INTO airports (code, name_en, name_ar) KEY(code) VALUES ('DMM', 'Dammam', 'الدمام');
+MERGE INTO airports (code, name_en, name_ar) KEY(code) VALUES ('DXB', 'Dubai', 'دبي');
+MERGE INTO airports (code, name_en, name_ar) KEY(code) VALUES ('CAI', 'Cairo', 'القاهرة');
+
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('RUH', 'riyadh');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('RUH', 'ruh');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('RUH', 'الرياض');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('RUH', 'raydh');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('RUH', 'reyaadh');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('JED', 'jed');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('JED', 'jeddah');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('JED', 'جدة');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('JED', 'jiddah');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('DMM', 'dammam');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('DMM', 'dhahran');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('DMM', 'الدمام');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('DMM', 'dmm');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('DXB', 'dubai');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('DXB', 'dxb');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('DXB', 'دبي');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('CAI', 'cairo');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('CAI', 'cai');
+MERGE INTO airport_aliases (airport_code, alias) KEY(airport_code, alias) VALUES ('CAI', 'القاهرة');
+
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('RUH', 'JED');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('JED', 'RUH');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('RUH', 'DMM');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('DMM', 'RUH');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('RUH', 'DXB');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('DXB', 'RUH');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('RUH', 'CAI');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('CAI', 'RUH');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('JED', 'DMM');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('DMM', 'JED');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('JED', 'CAI');
+MERGE INTO routes (origin, destination) KEY(origin, destination) VALUES ('CAI', 'JED');

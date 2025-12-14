@@ -370,3 +370,32 @@ CREATE TABLE IF NOT EXISTS saved_payment_methods (
 );
 
 CREATE INDEX IF NOT EXISTS idx_saved_payment_methods_user_id ON saved_payment_methods(user_id);
+
+-- ============================================================================
+-- AI REFERENCE DATA (KOOG)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS airports (
+    code VARCHAR(3) PRIMARY KEY,
+    name_en VARCHAR(100),
+    name_ar VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS airport_aliases (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    airport_code VARCHAR(3) NOT NULL,
+    alias VARCHAR(100) NOT NULL,
+    UNIQUE(airport_code, alias),
+    FOREIGN KEY (airport_code) REFERENCES airports(code) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS routes (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    origin VARCHAR(3) NOT NULL,
+    destination VARCHAR(3) NOT NULL,
+    UNIQUE(origin, destination),
+    FOREIGN KEY (origin) REFERENCES airports(code),
+    FOREIGN KEY (destination) REFERENCES airports(code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_airport_aliases_alias ON airport_aliases(alias);

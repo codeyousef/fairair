@@ -57,7 +57,19 @@ coil = "3.0.4"
 junit = "5.10.3"
 rest-assured = "5.5.0"
 
+# AWS SDK Kotlin
+aws-sdk-kotlin = "1.0.0"
+
+# MongoDB
+mongodb-driver = "5.0.0"
+
 [libraries]
+# AWS Bedrock
+aws-bedrock-runtime = { module = "aws.sdk.kotlin:bedrockruntime", version.ref = "aws-sdk-kotlin" }
+
+# MongoDB
+mongodb-driver-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb-driver" }
+
 # Kotlin
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }

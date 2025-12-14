@@ -93,3 +93,4 @@ compose-resources/
 coverage/
 *.lcov
 test-results/
+/gitlab-runner-F3-POC_accessKeys (1).csv

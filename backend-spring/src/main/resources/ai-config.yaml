@@ -1,0 +1,7 @@
+koog:
+  checkpoint-enabled: true
+  checkpoint-collection: "koog_sessions"
+  primary-model: "meta.llama3-2-1b-instruct-v1:0"
+  backup-model: "meta.llama3-2-11b-instruct-v1:0"
+  city-codes-path: "classpath:city-codes.yaml"
+  valid-routes-path: "classpath:valid-routes.yaml"

@@ -12,6 +12,15 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+import org.springframework.boot.test.mock.mockito.MockBean
+import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeAsyncClient
+import com.fairair.ai.booking.executor.BedrockLlamaExecutor
+import com.fairair.ai.booking.executor.LocalModelExecutor
+import org.junit.jupiter.api.BeforeEach
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
+import kotlinx.coroutines.runBlocking
+
 /**
  * Base class for E2E tests providing common test infrastructure.
  * 
@@ -33,6 +42,33 @@ import java.time.format.DateTimeFormatter
 )
 @ActiveProfiles("test")
 abstract class E2ETestBase {
+
+    @MockBean
+    protected lateinit var bedrockRuntimeAsyncClient: BedrockRuntimeAsyncClient
+
+    @MockBean
+    protected lateinit var bedrockLlamaExecutor: BedrockLlamaExecutor
+
+    @MockBean
+    protected lateinit var localModelExecutor: LocalModelExecutor
+
+    @BeforeEach
+    fun setupMocks() {
+        runBlocking {
+            val defaultJson = """
+                {
+                    "origin": "JED", 
+                    "destination": "RUH", 
+                    "date": "2025-12-25", 
+                    "passengers": 1
+                }
+            """.trimIndent()
+            
+            // Stub generic responses to prevent NPEs
+            whenever(bedrockLlamaExecutor.generate(any())).thenReturn(defaultJson)
+            whenever(localModelExecutor.generate(any())).thenReturn(defaultJson)
+        }
+    }
 
     @LocalServerPort
     protected var port: Int = 0
