@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -276,7 +277,7 @@ fun B2BBookingsManager(
                         },
                         enabled = currentPage > 0
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Previous", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous", tint = Color.White)
                     }
 
                     Text(
@@ -293,7 +294,7 @@ fun B2BBookingsManager(
                         },
                         enabled = currentPage < totalPages - 1
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Next", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Next", tint = Color.White)
                     }
                 }
             }
@@ -478,7 +479,7 @@ private fun BookingDetailsView(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
 
                 Column(modifier = Modifier.weight(1f)) {

@@ -12,6 +12,9 @@ dependencies {
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.security)
     
+    // Spring Dotenv - automatically load .env files
+    implementation("me.paulschwarz:spring-dotenv:4.0.0")
+    
     // Spring Data R2DBC for reactive database access
     implementation(libs.spring.boot.starter.data.r2dbc)
     
@@ -82,4 +85,9 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// Ensure bootRun uses backend-spring as working directory and loads .env
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    workingDir = projectDir
 }

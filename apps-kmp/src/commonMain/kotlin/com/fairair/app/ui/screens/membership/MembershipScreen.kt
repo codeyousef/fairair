@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,7 +29,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.app.api.*
@@ -45,7 +47,7 @@ class MembershipScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = getScreenModel<MembershipScreenModel>()
+        val screenModel = koinScreenModel<MembershipScreenModel>()
         val uiState by screenModel.uiState.collectAsState()
 
         VelocityTheme {
@@ -341,7 +343,7 @@ private fun CurrentSubscriptionBanner(
                 }
                 
                 Icon(
-                    imageVector = Icons.Default.ArrowForward,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
                     tint = VelocityColors.TextMuted
                 )
@@ -589,7 +591,7 @@ private fun PlanDetailsView(
             GlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     DetailRow(
-                        Icons.Default.List, 
+                        Icons.AutoMirrored.Filled.List, 
                         "Routes", 
                         if (plan.restrictions.domesticOnly) "Domestic only" else "All routes"
                     )
@@ -1130,7 +1132,7 @@ private fun ManageSubscriptionView(
                             )
                         }
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
                             tint = Color(0xFF4CAF50),
                             modifier = Modifier.size(32.dp)

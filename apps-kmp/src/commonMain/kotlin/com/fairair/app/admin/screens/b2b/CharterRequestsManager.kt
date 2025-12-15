@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -124,7 +125,7 @@ fun CharterRequestsManager(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
                             tint = FairairColors.Gray400
@@ -205,7 +206,7 @@ private fun CharterRequestRow(
                 "CORPORATE" -> Icons.Default.Person
                 "GOVERNMENT" -> Icons.Default.Home
                 "MILITARY" -> Icons.Default.Lock
-                else -> Icons.Default.Send
+                else -> Icons.AutoMirrored.Filled.Send
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -244,7 +245,7 @@ private fun CharterRequestRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Send,
+                imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = FairairColors.Gray500
@@ -321,7 +322,7 @@ private fun CharterRequestDetailsDialog(
         modifier = Modifier.widthIn(max = 550.dp),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Send, null, tint = FairairColors.Purple)
+                Icon(Icons.AutoMirrored.Filled.Send, null, tint = FairairColors.Purple)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text("Charter Request ${request.requestNumber}", fontWeight = FontWeight.Bold)

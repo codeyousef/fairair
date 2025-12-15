@@ -7,6 +7,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -183,7 +186,7 @@ private fun LandingHeader(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "FairAir",
                     tint = VelocityColors.Primary,
                     modifier = Modifier.size(28.dp)
@@ -231,7 +234,7 @@ private fun LandingHeader(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.List,
+                                imageVector = Icons.AutoMirrored.Filled.List,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -417,7 +420,7 @@ private fun ServicesSection(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 ServiceCard(
-                    icon = Icons.Default.Send,
+                    icon = Icons.AutoMirrored.Filled.Send,
                     title = "Check-In",
                     description = "Check in online 48h before departure",
                     onClick = onCheckInClick,
@@ -569,7 +572,7 @@ private fun ExternalServiceCard(
                 )
             }
             Icon(
-                imageVector = Icons.Default.ArrowForward,
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
                 tint = VelocityColors.TextMuted,
                 modifier = Modifier.size(16.dp)
@@ -938,7 +941,7 @@ private fun LandingFooter(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Send,
+                                imageVector = Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "FairAir",
                                 tint = VelocityColors.Primary,
                                 modifier = Modifier.size(24.dp)

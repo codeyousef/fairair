@@ -21,7 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.contract.dto.StationDto
@@ -42,7 +42,7 @@ class SearchScreen : Screen, AppScreen.Search {
 
     @Composable
     override fun Content() {
-        val screenModel = getScreenModel<SearchScreenModel>()
+        val screenModel = koinScreenModel<SearchScreenModel>()
         val velocityState by screenModel.velocityState.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
         val localization = LocalLocalization.current

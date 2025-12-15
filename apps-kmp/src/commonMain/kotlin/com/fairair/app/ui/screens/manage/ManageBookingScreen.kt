@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,7 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.app.api.*
@@ -47,7 +49,7 @@ class ManageBookingScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = getScreenModel<ManageBookingScreenModel>()
+        val screenModel = koinScreenModel<ManageBookingScreenModel>()
         val uiState by screenModel.uiState.collectAsState()
 
         VelocityTheme {
@@ -381,7 +383,7 @@ private fun BookingDetailsView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
                             tint = VelocityColors.Accent,
                             modifier = Modifier.size(24.dp)
@@ -424,7 +426,7 @@ private fun BookingDetailsView(
                                 color = VelocityColors.Accent
                             )
                             Icon(
-                                imageVector = Icons.Default.ArrowForward,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
                                 tint = VelocityColors.TextMuted,
                                 modifier = Modifier.size(20.dp)
@@ -585,7 +587,7 @@ private fun BookingDetailsView(
                 if (canCheckIn) {
                     ActionButton(
                         text = "Check In",
-                        icon = Icons.Default.Send,
+                        icon = Icons.AutoMirrored.Filled.Send,
                         primary = true,
                         onClick = onCheckIn
                     )

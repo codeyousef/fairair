@@ -1,6 +1,9 @@
 package com.fairair.app.admin.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -12,17 +15,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 object AdminIcons {
     // Available standard icons
     val Dashboard: ImageVector = Icons.Default.Home
-    val Flight: ImageVector = Icons.Default.Send
+    val Flight: ImageVector = Icons.AutoMirrored.Filled.Send
     val Article: ImageVector = Icons.Default.Menu
     val Gavel: ImageVector = Icons.Default.Check
     val Place: ImageVector = Icons.Default.LocationOn
     val LocalOffer: ImageVector = Icons.Default.Star
     val Business: ImageVector = Icons.Default.Person
-    val Groups: ImageVector = Icons.Default.List
-    val AirplanemodeActive: ImageVector = Icons.Default.Send
+    val Groups: ImageVector = Icons.AutoMirrored.Filled.List
+    val AirplanemodeActive: ImageVector = Icons.AutoMirrored.Filled.Send
     val People: ImageVector = Icons.Default.Person
     val Settings: ImageVector = Icons.Default.Settings
-    val Logout: ImageVector = Icons.Default.ExitToApp
+    val Logout: ImageVector = Icons.AutoMirrored.Filled.ExitToApp
     val Add: ImageVector = Icons.Default.Add
     val Edit: ImageVector = Icons.Default.Edit
     val Delete: ImageVector = Icons.Default.Delete

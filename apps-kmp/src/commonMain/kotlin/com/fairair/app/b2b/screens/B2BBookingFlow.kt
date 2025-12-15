@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -91,7 +92,7 @@ fun B2BBookingFlow(
                         }
                     }
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
 
                 // Progress indicator
@@ -199,7 +200,7 @@ fun B2BBookingFlow(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Continue to Contact Info", fontWeight = FontWeight.SemiBold)
-                        Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.padding(start = 8.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.padding(start = 8.dp))
                     }
                 }
             }

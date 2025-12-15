@@ -384,7 +384,13 @@ ${if (result.isError) "(Error occurred)" else ""}"""
             // Add tool results as a user message (since Llama doesn't have native tool support)
             state.messages.add(ChatMessage(
                 role = "user",
-                content = "Tool execution results:\n$toolResultsText\n\nPlease provide your response to the user based on these results."
+                content = """Tool execution results:
+$toolResultsText
+
+IMPORTANT: Use the ACTUAL DATA from the tool results above. Do NOT output placeholder text like "[list of travelers]". 
+Extract the real names, passport numbers, and details from the JSON above and present them naturally to the user.
+If get_saved_travelers returned travelers, list them BY NAME (e.g., "Jane Doe, Ahmed Doe").
+If the user says "me" or "just me", use the traveler marked as isMainTraveler=true."""
             ))
             
             // Call the model again

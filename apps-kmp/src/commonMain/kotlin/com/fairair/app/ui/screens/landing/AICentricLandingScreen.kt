@@ -14,6 +14,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -32,6 +34,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
@@ -51,9 +54,12 @@ import com.fairair.app.ui.chat.ChatUiState
 import com.fairair.app.ui.theme.NotoKufiArabicFontFamily
 import com.fairair.app.ui.theme.SpaceGroteskFontFamily
 import com.fairair.app.ui.theme.VelocityColors
+import com.fairair.apps_kmp.generated.resources.*
 import com.fairair.contract.dto.ChatUiType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -71,138 +77,57 @@ private val GlassWhite = Color(0x1AFFFFFF)
 private val GlassBorder = Color(0x33FFFFFF)
 
 // =============================================================================
-// CITY THEMES - Dynamic background colors based on city/destination
+// CITY THEMES - Dynamic background images based on city/destination
 // =============================================================================
 
 /**
- * Represents the color theme for a city, used for dynamic backgrounds.
+ * Represents the theme for a city, including background image and accent colors.
  */
 data class CityTheme(
-    val gradientStart: Color,
-    val gradientEnd: Color,
+    val backgroundImage: DrawableResource?,
     val accentColor: Color,
     val cityName: String
 )
 
 /**
- * Get city theme based on airport code. Each city has unique colors that evoke its character.
+ * Get city theme based on airport code. Each city has a unique background image.
  */
 private fun getCityTheme(airportCode: String?): CityTheme {
     return when (airportCode?.uppercase()) {
         // Saudi Arabia cities
         "JED" -> CityTheme(
-            gradientStart = Color(0xFF1a365d), // Deep ocean blue (Red Sea city)
-            gradientEnd = Color(0xFF0F172A),
+            backgroundImage = Res.drawable.bg_jed,
             accentColor = Color(0xFF60A5FA),
             cityName = "Jeddah"
         )
         "RUH" -> CityTheme(
-            gradientStart = Color(0xFF422006), // Desert amber
-            gradientEnd = Color(0xFF0F172A),
+            backgroundImage = Res.drawable.bg_ruh,
             accentColor = Color(0xFFFBBF24),
             cityName = "Riyadh"
         )
         "DMM" -> CityTheme(
-            gradientStart = Color(0xFF134E4A), // Gulf teal
-            gradientEnd = Color(0xFF0F172A),
+            backgroundImage = Res.drawable.bg_dmm,
             accentColor = Color(0xFF2DD4BF),
             cityName = "Dammam"
-        )
-        "MED" -> CityTheme(
-            gradientStart = Color(0xFF1E3A5F), // Spiritual green-blue
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFF34D399),
-            cityName = "Madinah"
-        )
-        "AHB" -> CityTheme(
-            gradientStart = Color(0xFF14532D), // Mountain green (highland city)
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFF4ADE80),
-            cityName = "Abha"
         )
         
         // UAE
         "DXB" -> CityTheme(
-            gradientStart = Color(0xFF7C2D12), // Golden luxury
-            gradientEnd = Color(0xFF0F172A),
+            backgroundImage = Res.drawable.bg_dxb,
             accentColor = Color(0xFFFBBF24),
             cityName = "Dubai"
-        )
-        "AUH" -> CityTheme(
-            gradientStart = Color(0xFF1E293B), // Modern slate
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFFA78BFA),
-            cityName = "Abu Dhabi"
         )
         
         // Egypt
         "CAI" -> CityTheme(
-            gradientStart = Color(0xFF451A03), // Pyramid gold/sand
-            gradientEnd = Color(0xFF0F172A),
+            backgroundImage = Res.drawable.bg_cai,
             accentColor = Color(0xFFFCD34D),
             cityName = "Cairo"
         )
         
-        // Jordan
-        "AMM" -> CityTheme(
-            gradientStart = Color(0xFF5C1E14), // Petra rose
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFFFDA4AF),
-            cityName = "Amman"
-        )
-        
-        // Turkey
-        "IST" -> CityTheme(
-            gradientStart = Color(0xFF4C1D95), // Byzantine purple
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFFA78BFA),
-            cityName = "Istanbul"
-        )
-        
-        // Bahrain
-        "BAH" -> CityTheme(
-            gradientStart = Color(0xFF164E63), // Pearl diving blue
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFF22D3EE),
-            cityName = "Bahrain"
-        )
-        
-        // Kuwait
-        "KWI" -> CityTheme(
-            gradientStart = Color(0xFF1E3A8A), // Modern blue
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFF60A5FA),
-            cityName = "Kuwait"
-        )
-        
-        // Oman
-        "MCT" -> CityTheme(
-            gradientStart = Color(0xFF0D4033), // Frankincense green
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFF34D399),
-            cityName = "Muscat"
-        )
-        
-        // Thailand
-        "BKK" -> CityTheme(
-            gradientStart = Color(0xFF7C2D12), // Temple gold
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFFFBBF24),
-            cityName = "Bangkok"
-        )
-        
-        // Maldives
-        "MLE" -> CityTheme(
-            gradientStart = Color(0xFF0C4A6E), // Tropical ocean
-            gradientEnd = Color(0xFF0F172A),
-            accentColor = Color(0xFF22D3EE),
-            cityName = "Maldives"
-        )
-        
-        // Default - original aurora theme
+        // Default - no background image (use gradient)
         else -> CityTheme(
-            gradientStart = VelocityColors.GradientStart,
-            gradientEnd = VelocityColors.GradientEnd,
+            backgroundImage = null,
             accentColor = AuroraCyan,
             cityName = ""
         )
@@ -252,7 +177,10 @@ fun AICentricLandingScreen(
     val cityTheme = remember(userLocationCode, destinationCode) {
         // Priority: destination > user location > default
         val activeCity = destinationCode ?: userLocationCode
-        getCityTheme(activeCity)
+        println("AICentricLandingScreen: Computing cityTheme - userLocationCode=$userLocationCode, destinationCode=$destinationCode, activeCity=$activeCity")
+        val theme = getCityTheme(activeCity)
+        println("AICentricLandingScreen: Selected theme for ${theme.cityName.ifEmpty { "default" }} - hasImage=${theme.backgroundImage != null}")
+        theme
     }
     
     // Scroll to latest message when new messages arrive
@@ -266,32 +194,41 @@ fun AICentricLandingScreen(
     CompositionLocalProvider(
         LocalLayoutDirection provides if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
     ) {
-        // Animated background transition when city changes
-        val animatedGradientStart by animateColorAsState(
-            targetValue = cityTheme.gradientStart,
-            animationSpec = tween(durationMillis = 1500, easing = EaseInOutCubic),
-            label = "gradientStart"
-        )
-        val animatedGradientEnd by animateColorAsState(
-            targetValue = cityTheme.gradientEnd,
-            animationSpec = tween(durationMillis = 1500, easing = EaseInOutCubic),
-            label = "gradientEnd"
-        )
-        
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            animatedGradientStart,
-                            animatedGradientEnd
-                        )
-                    )
-                )
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Aurora animated background
-            AuroraBackgroundEffect(modifier = Modifier.fillMaxSize())
+            // Background - either city image or default gradient
+            if (cityTheme.backgroundImage != null) {
+                // City background image with dark overlay for readability
+                Image(
+                    painter = painterResource(cityTheme.backgroundImage),
+                    contentDescription = "Background for ${cityTheme.cityName}",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                // Dark overlay for text readability
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f))
+                )
+            } else {
+                // Default gradient background
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    VelocityColors.GradientStart,
+                                    VelocityColors.GradientEnd
+                                )
+                            )
+                        )
+                )
+                // Aurora animated background only for default theme
+                AuroraBackgroundEffect(modifier = Modifier.fillMaxSize())
+            }
             
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -451,7 +388,7 @@ private fun AICentricHeader(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "FairAir",
                     tint = AuroraCyan,
                     modifier = Modifier.size(28.dp)
@@ -497,7 +434,7 @@ private fun AICentricHeader(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.List,
+                            imageVector = Icons.AutoMirrored.Filled.List,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
@@ -683,7 +620,7 @@ private fun AIHeroSection(
             )
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
-                imageVector = Icons.Default.ArrowForward,
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
                 tint = AuroraCyan,
                 modifier = Modifier.size(16.dp)
@@ -1717,7 +1654,7 @@ private fun QuickServicesGrid(
     val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
     
     val services = listOf(
-        Triple(Icons.Default.Send, if (isRtl) "تسجيل الوصول" else "Check-In", onCheckInClick),
+        Triple(Icons.AutoMirrored.Filled.Send, if (isRtl) "تسجيل الوصول" else "Check-In", onCheckInClick),
         Triple(Icons.Default.Edit, if (isRtl) "إدارة الحجز" else "Manage Booking", onManageBookingClick),
         Triple(Icons.Default.Star, if (isRtl) "العضوية" else "Membership", onMembershipClick),
         Triple(Icons.Default.Info, if (isRtl) "المساعدة" else "Help", onHelpClick)

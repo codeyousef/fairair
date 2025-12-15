@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -526,7 +527,7 @@ enum class HelpCategory(
     ),
     FLIGHT(
         title = "Flight-Related Queries",
-        icon = Icons.Default.Send,
+        icon = Icons.AutoMirrored.Filled.Send,
         color = Color(0xFF10B981),
         faqs = listOf(
             FaqQuestion(

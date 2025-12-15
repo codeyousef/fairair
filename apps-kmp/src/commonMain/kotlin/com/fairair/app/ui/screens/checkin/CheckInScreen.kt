@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,7 +28,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.app.api.*
@@ -48,7 +49,7 @@ class CheckInScreen : Screen, AppScreen.CheckIn {
 
     @Composable
     override fun Content() {
-        val screenModel = getScreenModel<CheckInScreenModel>()
+        val screenModel = koinScreenModel<CheckInScreenModel>()
         val uiState by screenModel.uiState.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
 
@@ -203,7 +204,7 @@ private fun CheckInForm(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Send,
+                imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = null,
                 modifier = Modifier.size(40.dp),
                 tint = VelocityColors.Accent
@@ -405,7 +406,7 @@ private fun PassengerSelectionView(
                             )
                         }
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
                             tint = VelocityColors.TextMuted
                         )
@@ -834,7 +835,7 @@ private fun BoardingPassDialog(
                         )
                     }
                     Icon(
-                        imageVector = Icons.Default.Send,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = null,
                         tint = VelocityColors.Accent
                     )

@@ -8,6 +8,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -112,7 +115,7 @@ private fun AdminSidebar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Send,
+                imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
                 tint = FairairColors.Yellow
@@ -133,7 +136,7 @@ private fun AdminSidebar(
             }
         }
 
-        Divider(color = FairairColors.White.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(color = FairairColors.White.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 8.dp))
 
         // Navigation Items
         LazyColumn(
@@ -191,13 +194,13 @@ private fun AdminSidebar(
                     onClick = { onSectionChange(AdminSection.AGENCIES) }
                 )
                 SidebarItem(
-                    icon = Icons.Default.List,
+                    icon = Icons.AutoMirrored.Filled.List,
                     label = "Group Bookings",
                     isSelected = currentSection == AdminSection.GROUP_BOOKINGS,
                     onClick = { onSectionChange(AdminSection.GROUP_BOOKINGS) }
                 )
                 SidebarItem(
-                    icon = Icons.Default.Send,
+                    icon = Icons.AutoMirrored.Filled.Send,
                     label = "Charter Requests",
                     isSelected = currentSection == AdminSection.CHARTER_REQUESTS,
                     onClick = { onSectionChange(AdminSection.CHARTER_REQUESTS) }
@@ -221,7 +224,7 @@ private fun AdminSidebar(
             }
         }
 
-        Divider(color = FairairColors.White.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(color = FairairColors.White.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 8.dp))
 
         // User Info & Logout
         Row(
@@ -259,7 +262,7 @@ private fun AdminSidebar(
             }
             IconButton(onClick = onLogout) {
                 Icon(
-                    imageVector = Icons.Default.ExitToApp,
+                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                     contentDescription = "Logout",
                     tint = FairairColors.White.copy(alpha = 0.7f)
                 )
@@ -413,7 +416,7 @@ private fun DashboardContent(
                     modifier = Modifier.weight(1f),
                     title = "Pending Group Bookings",
                     value = pendingGroupBookings.toString(),
-                    icon = Icons.Default.List,
+                    icon = Icons.AutoMirrored.Filled.List,
                     color = FairairColors.Info
                 )
             }

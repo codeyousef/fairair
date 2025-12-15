@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.app.navigation.AppScreen
@@ -33,7 +33,7 @@ class ConfirmationScreen : Screen, AppScreen.Confirmation {
 
     @Composable
     override fun Content() {
-        val screenModel = getScreenModel<ConfirmationScreenModel>()
+        val screenModel = koinScreenModel<ConfirmationScreenModel>()
         val uiState by screenModel.uiState.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
 

@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -129,7 +131,7 @@ fun GroupBookingsManager(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            imageVector = Icons.Default.List,
+                            imageVector = Icons.AutoMirrored.Filled.List,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
                             tint = FairairColors.Gray400
@@ -250,7 +252,7 @@ private fun GroupBookingRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Send,
+                imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = FairairColors.Gray500
@@ -339,7 +341,7 @@ private fun GroupBookingDetailsDialog(
         modifier = Modifier.widthIn(max = 500.dp),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.List, null, tint = FairairColors.Purple)
+                Icon(Icons.AutoMirrored.Filled.List, null, tint = FairairColors.Purple)
                 Spacer(modifier = Modifier.width(12.dp))
                 Text("Request ${booking.requestNumber}", fontWeight = FontWeight.Bold)
             }
@@ -464,7 +466,7 @@ private fun QuoteDialog(
                             value = currency,
                             onValueChange = {},
                             readOnly = true,
-                            modifier = Modifier.menuAnchor(),
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
                             singleLine = true
                         )

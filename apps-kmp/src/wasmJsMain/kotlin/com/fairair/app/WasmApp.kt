@@ -19,8 +19,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -360,6 +363,62 @@ private fun WasmAppContent() {
                             }
                         )
                     }
+                } else if (currentScreen == WasmScreen.LANDING) {
+                    // Landing screen is full-width for background images
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AICentricLandingScreen(
+                            chatState = chatUiState,
+                            onSendMessage = { message ->
+                                val locale = if (localizationState.isRtl) "ar-SA" else "en-US"
+                                chatScreenModel.sendMessage(message, locale)
+                            },
+                            onInputChange = { chatScreenModel.updateInputText(it) },
+                            onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
+                            onVoiceClick = { chatScreenModel.toggleListening() },
+                            onClearChat = { chatScreenModel.clearChat() },
+                            onManualBookClick = {
+                                println("[WasmApp] Manual book click - navigating to search")
+                                pendingSearchNavigation = true
+                                showAirplaneTransition = true
+                            },
+                            onLoginClick = { currentScreen = WasmScreen.LOGIN },
+                            onLogoutClick = {
+                                localStorage.clearAuth()
+                                currentUser = null
+                                authToken = null
+                            },
+                            onMyBookingsClick = { currentScreen = WasmScreen.SAVED_BOOKINGS },
+                            onSettingsClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.SETTINGS
+                            },
+                            onCheckInClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.CHECK_IN
+                            },
+                            onManageBookingClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.MANAGE_BOOKING
+                            },
+                            onMembershipClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.MEMBERSHIP
+                            },
+                            onHelpClick = {
+                                previousScreen = WasmScreen.LANDING
+                                currentScreen = WasmScreen.HELP
+                            },
+                            onFlightSelected = { flightNumber ->
+                                // When AI suggests a flight and user selects it
+                                println("[WasmApp] AI flight selected: $flightNumber")
+                                chatScreenModel.onSuggestionTapped("Select flight $flightNumber")
+                            },
+                            userName = currentUser?.firstName,
+                            isRtl = localizationState.isRtl,
+                            locale = if (localizationState.isRtl) "ar-SA" else "en-US",
+                            userLocationCode = userOriginCode // Pass detected location for dynamic background
+                        )
+                    }
                 } else {
                     // All other screens have max width constraint
                     Box(
@@ -369,58 +428,7 @@ private fun WasmAppContent() {
                     ) {
                         when (currentScreen) {
                             WasmScreen.LANDING -> {
-                                AICentricLandingScreen(
-                                    chatState = chatUiState,
-                                    onSendMessage = { message ->
-                                        val locale = if (localizationState.isRtl) "ar-SA" else "en-US"
-                                        chatScreenModel.sendMessage(message, locale)
-                                    },
-                                    onInputChange = { chatScreenModel.updateInputText(it) },
-                                    onSuggestionTapped = { chatScreenModel.onSuggestionTapped(it) },
-                                    onVoiceClick = { chatScreenModel.toggleListening() },
-                                    onClearChat = { chatScreenModel.clearChat() },
-                                    onManualBookClick = {
-                                        println("[WasmApp] Manual book click - navigating to search")
-                                        pendingSearchNavigation = true
-                                        showAirplaneTransition = true
-                                    },
-                                    onLoginClick = { currentScreen = WasmScreen.LOGIN },
-                                    onLogoutClick = {
-                                        localStorage.clearAuth()
-                                        currentUser = null
-                                        authToken = null
-                                    },
-                                    onMyBookingsClick = { currentScreen = WasmScreen.SAVED_BOOKINGS },
-                                    onSettingsClick = {
-                                        previousScreen = WasmScreen.LANDING
-                                        currentScreen = WasmScreen.SETTINGS
-                                    },
-                                    onCheckInClick = {
-                                        previousScreen = WasmScreen.LANDING
-                                        currentScreen = WasmScreen.CHECK_IN
-                                    },
-                                    onManageBookingClick = {
-                                        previousScreen = WasmScreen.LANDING
-                                        currentScreen = WasmScreen.MANAGE_BOOKING
-                                    },
-                                    onMembershipClick = {
-                                        previousScreen = WasmScreen.LANDING
-                                        currentScreen = WasmScreen.MEMBERSHIP
-                                    },
-                                    onHelpClick = {
-                                        previousScreen = WasmScreen.LANDING
-                                        currentScreen = WasmScreen.HELP
-                                    },
-                                    onFlightSelected = { flightNumber ->
-                                        // When AI suggests a flight and user selects it
-                                        println("[WasmApp] AI flight selected: $flightNumber")
-                                        chatScreenModel.onSuggestionTapped("Select flight $flightNumber")
-                                    },
-                                    userName = currentUser?.firstName,
-                                    isRtl = localizationState.isRtl,
-                                    locale = if (localizationState.isRtl) "ar-SA" else "en-US",
-                                    userLocationCode = userOriginCode // Pass detected location for dynamic background
-                                )
+                                // Handled above (full-width)
                             }
                             WasmScreen.LOGIN -> {
                                 WasmLoginScreen(
@@ -2526,7 +2534,7 @@ private fun WasmConfirmationScreenContainer(
                                     color = VelocityColors.Accent
                                 )
                                 Icon(
-                                    imageVector = Icons.Default.Send,
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
                                     contentDescription = null,
                                     tint = VelocityColors.Accent,
                                     modifier = Modifier.size(24.dp)
@@ -3128,7 +3136,7 @@ private fun WasmLoginScreen(
         ) {
             // Logo and Title
             Icon(
-                imageVector = Icons.Default.Send,
+                imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = "FairAir",
                 tint = VelocityColors.Primary,
                 modifier = Modifier.size(64.dp)
@@ -3363,7 +3371,7 @@ private fun WasmDropdownField(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(),
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = VelocityColors.Accent,
                 unfocusedBorderColor = VelocityColors.GlassBorder,
@@ -3621,7 +3629,7 @@ private fun WasmCheckInScreen(
                         item {
                             Spacer(modifier = Modifier.height(48.dp))
                             Icon(
-                                imageVector = Icons.Default.Send,
+                                imageVector = Icons.AutoMirrored.Filled.Send,
                                 contentDescription = null,
                                 tint = VelocityColors.Accent,
                                 modifier = Modifier.size(80.dp)
@@ -3794,7 +3802,7 @@ private fun WasmManageBookingScreen(
                         GlassCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(20.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Send, null, tint = VelocityColors.Accent, modifier = Modifier.size(24.dp))
+                                    Icon(Icons.AutoMirrored.Filled.Send, null, tint = VelocityColors.Accent, modifier = Modifier.size(24.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Flight Details", style = MaterialTheme.typography.titleMedium, color = VelocityColors.TextMain, fontWeight = FontWeight.SemiBold)
                                 }
@@ -3806,7 +3814,7 @@ private fun WasmManageBookingScreen(
                                     }
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(booking!!.flight.flightNumber, style = MaterialTheme.typography.bodySmall, color = VelocityColors.Accent)
-                                        Icon(Icons.Default.ArrowForward, null, tint = VelocityColors.TextMuted, modifier = Modifier.size(20.dp))
+                                        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = VelocityColors.TextMuted, modifier = Modifier.size(20.dp))
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(booking!!.flight.destination, style = MaterialTheme.typography.headlineSmall, color = VelocityColors.TextMain, fontWeight = FontWeight.Bold)
@@ -3867,7 +3875,7 @@ private fun WasmManageBookingScreen(
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = VelocityColors.Accent)
                             ) {
-                                Icon(Icons.Default.Send, null, modifier = Modifier.size(20.dp))
+                                Icon(Icons.AutoMirrored.Filled.Send, null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Check In", fontWeight = FontWeight.SemiBold)
                             }

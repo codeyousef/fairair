@@ -28,7 +28,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.app.navigation.AppScreen
@@ -43,7 +43,7 @@ class PassengerInfoScreen : Screen, AppScreen.PassengerInfo {
 
     @Composable
     override fun Content() {
-        val screenModel = getScreenModel<PassengerInfoScreenModel>()
+        val screenModel = koinScreenModel<PassengerInfoScreenModel>()
         val uiState by screenModel.uiState.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
 

@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.fairair.contract.dto.BookingConfirmationDto
@@ -38,7 +38,7 @@ class SavedBookingsScreen : Screen, AppScreen.SavedBookings {
 
     @Composable
     override fun Content() {
-        val screenModel = getScreenModel<SavedBookingsScreenModel>()
+        val screenModel = koinScreenModel<SavedBookingsScreenModel>()
         val uiState by screenModel.uiState.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
 

@@ -5,7 +5,9 @@ spring:
   application:
     name: fairair-backend
   config:
-    import: "optional:classpath:ai-config.yaml"
+    import: 
+      - "optional:classpath:ai-config.yaml"
+      - "optional:file:.env[.properties]"
   
   # R2DBC Database Configuration
   # Current: H2 file-based database (persistent)
