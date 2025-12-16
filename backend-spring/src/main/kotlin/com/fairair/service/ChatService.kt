@@ -33,11 +33,18 @@ class ChatService(
         var uiDataJson: String? = null
         if (result.uiData != null) {
             uiDataJson = try {
-                if (result.uiType == ChatUiType.FLIGHT_LIST && result.uiData is FlightResponse) {
-                    val payload = mapToFlightListPayload(result.uiData)
-                    json.encodeToString(payload)
-                } else {
-                    json.encodeToString(result.uiData.toString())
+                when {
+                    result.uiType == ChatUiType.FLIGHT_LIST && result.uiData is FlightResponse -> {
+                        val payload = mapToFlightListPayload(result.uiData)
+                        json.encodeToString(payload)
+                    }
+                    result.uiData is String -> {
+                        // Already serialized JSON string
+                        result.uiData as String
+                    }
+                    else -> {
+                        json.encodeToString(result.uiData.toString())
+                    }
                 }
             } catch (e: Exception) {
                 log.error("Failed to serialize UI data", e)
@@ -48,14 +55,22 @@ class ChatService(
         val aiResponseText = result.response
         val locale = request.locale
         val uiType = result.uiType
+        
+        // Use suggestions from the booking orchestrator if provided, otherwise fall back to generated suggestions
+        val suggestions = if (result.suggestions.isNotEmpty()) {
+            result.suggestions
+        } else {
+            generateSuggestions(locale, uiType)
+        }
 
         return ChatResponseDto(
             text = aiResponseText,
             uiType = uiType,
             uiData = uiDataJson,
-            suggestions = generateSuggestions(locale, uiType), 
+            suggestions = suggestions, 
             isPartial = false,
-            detectedLanguage = detectLanguage(aiResponseText)
+            detectedLanguage = detectLanguage(aiResponseText),
+            pendingContext = result.pendingContext
         )
     }
     
@@ -68,8 +83,8 @@ class ChatService(
                     flightNumber = flight.flightNumber,
                     departureTime = flight.departureTime.toString(),
                     arrivalTime = flight.arrivalTime.toString(),
-                    priceFormatted = "${lowest.price.amountMinor} ${lowest.price.currency}",
-                    priceMinor = lowest.price.amountMinor.toLong(),
+                    priceFormatted = lowest.price.formatDisplay(),
+                    priceMinor = lowest.price.amountMinor,
                     currency = lowest.price.currency.toString(),
                     duration = flight.formatDuration()
                 )

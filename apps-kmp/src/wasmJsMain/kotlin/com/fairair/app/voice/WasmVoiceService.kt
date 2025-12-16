@@ -57,9 +57,13 @@ class WasmVoiceService : VoiceService {
     private fun startContinuousRecording(language: String) {
         if (!continuousListening) return
         
+        println("WasmVoiceService: Starting continuous recording for language: $language")
+        
         startRecording(
             onAudioData = { audioBase64 ->
+                println("WasmVoiceService: Got audio data, length: ${audioBase64.length}")
                 scope.launch {
+                    println("WasmVoiceService: Inside coroutine, calling transcribeAudio")
                     _state.value = _state.value.copy(interimText = "Processing...")
                     
                     // Send audio to backend for transcription
@@ -67,46 +71,55 @@ class WasmVoiceService : VoiceService {
                         audioBase64 = audioBase64,
                         language = language,
                         onSuccess = { text ->
+                            println("WasmVoiceService: Transcription success: $text")
                             if (text.isNotBlank()) {
+                                // Show what was heard before sending
+                                _state.value = _state.value.copy(
+                                    interimText = text,
+                                    isListening = false
+                                )
+                                // Emit the text to be sent as a message
                                 _transcribedText.tryEmit(text)
+                                // Clear after a short delay
+                                scope.launch {
+                                    delay(1500)
+                                    _state.value = _state.value.copy(interimText = "")
+                                }
+                            } else {
+                                // No text recognized, show feedback
+                                _state.value = _state.value.copy(
+                                    interimText = "Didn't catch that...",
+                                    isListening = false
+                                )
+                                scope.launch {
+                                    delay(1500)
+                                    _state.value = _state.value.copy(interimText = "")
+                                }
                             }
                             
-                            // Continue listening if still in continuous mode
-                            if (continuousListening) {
-                                _state.value = _state.value.copy(
-                                    isListening = true,
-                                    interimText = "Listening..."
-                                )
-                                // Restart recording after a brief delay
-                                startContinuousRecording(language)
-                            } else {
-                                _state.value = _state.value.copy(
-                                    isListening = false,
-                                    interimText = ""
-                                )
-                            }
+                            // Stop continuous mode after successful transcription
+                            continuousListening = false
                         },
                         onError = { error ->
-                            // On error, still continue listening if in continuous mode
-                            if (continuousListening) {
-                                _state.value = _state.value.copy(
-                                    isListening = true,
-                                    interimText = "Listening...",
-                                    error = null // Clear error, keep listening
-                                )
-                                startContinuousRecording(language)
-                            } else {
-                                _state.value = _state.value.copy(
-                                    isListening = false,
-                                    interimText = "",
-                                    error = error
-                                )
+                            println("WasmVoiceService: Transcription error: $error")
+                            // Show error feedback and stop
+                            _state.value = _state.value.copy(
+                                isListening = false,
+                                interimText = "Something went wrong. Try again.",
+                                error = null
+                            )
+                            continuousListening = false
+                            // Clear error message after delay
+                            scope.launch {
+                                delay(2000)
+                                _state.value = _state.value.copy(interimText = "")
                             }
                         }
                     )
                 }
             },
             onError = { error ->
+                println("WasmVoiceService: Recording error: $error")
                 // On recording error, try to restart if in continuous mode
                 if (continuousListening) {
                     scope.launch {
@@ -294,24 +307,30 @@ private external fun stopRecording()
 
 @JsFun("""
 (audioBase64, language, onSuccess, onError) => {
+    console.log('transcribeAudio called - language:', language, 'audioLength:', audioBase64.length);
+    
     fetch('http://localhost:8080/api/voice/transcribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ audio: audioBase64, language: language })
     })
     .then(response => {
-        if (!response.ok) throw new Error('Transcription request failed');
+        console.log('Transcribe response status:', response.status);
+        if (!response.ok) throw new Error('Transcription request failed: ' + response.status);
         return response.json();
     })
     .then(data => {
+        console.log('Transcribe response data:', data);
         if (data.error) {
+            console.error('Transcribe API error:', data.error);
             onError(data.error);
         } else {
+            console.log('Transcribe success, text:', data.text);
             onSuccess(data.text || '');
         }
     })
     .catch(err => {
-        console.error('Transcribe error:', err);
+        console.error('Transcribe fetch error:', err);
         onError(err.message || 'Transcription failed');
     });
 }

@@ -62,6 +62,8 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.PI
 import kotlin.math.sin
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.vector.path
 
 // Max width for content on desktop
 private val MaxContentWidth = 1200.dp
@@ -73,8 +75,54 @@ private val AuroraMidnight = Color(0xFF0F172A)
 private val AuroraCyan = Color(0xFF22D3EE)
 private val AuroraBlue = Color(0xFF3B82F6)
 private val AuroraPurple = Color(0xFF8B5CF6)
+private val AuroraGreen = Color(0xFF22C55E)
 private val GlassWhite = Color(0x1AFFFFFF)
+private val GlassDark = Color(0x66000000)  // 40% black for input fields
 private val GlassBorder = Color(0x33FFFFFF)
+
+// =============================================================================
+// CUSTOM MICROPHONE ICON
+// =============================================================================
+
+/**
+ * Custom Microphone icon vector (Material Design mic icon)
+ */
+private val MicIcon: ImageVector
+    get() = ImageVector.Builder(
+        name = "Mic",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            fillAlpha = 1f,
+            pathFillType = PathFillType.NonZero
+        ) {
+            // Microphone body
+            moveTo(12f, 14f)
+            curveTo(13.66f, 14f, 15f, 12.66f, 15f, 11f)
+            lineTo(15f, 5f)
+            curveTo(15f, 3.34f, 13.66f, 2f, 12f, 2f)
+            curveTo(10.34f, 2f, 9f, 3.34f, 9f, 5f)
+            lineTo(9f, 11f)
+            curveTo(9f, 12.66f, 10.34f, 14f, 12f, 14f)
+            close()
+            // Microphone stand/arc
+            moveTo(17f, 11f)
+            curveTo(17f, 13.76f, 14.76f, 16f, 12f, 16f)
+            curveTo(9.24f, 16f, 7f, 13.76f, 7f, 11f)
+            lineTo(5f, 11f)
+            curveTo(5f, 14.53f, 7.61f, 17.44f, 11f, 17.93f)
+            lineTo(11f, 21f)
+            lineTo(13f, 21f)
+            lineTo(13f, 17.93f)
+            curveTo(16.39f, 17.44f, 19f, 14.53f, 19f, 11f)
+            lineTo(17f, 11f)
+            close()
+        }
+    }.build()
 
 // =============================================================================
 // CITY THEMES - Dynamic background images based on city/destination
@@ -199,19 +247,42 @@ fun AICentricLandingScreen(
         ) {
             // Background - either city image or default gradient
             if (cityTheme.backgroundImage != null) {
-                // City background image with dark overlay for readability
-                Image(
-                    painter = painterResource(cityTheme.backgroundImage),
-                    contentDescription = "Background for ${cityTheme.cityName}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                // Dark overlay for text readability
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.5f))
-                )
+                // City background image with frosted glass effect
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Base image - slightly blurred for frosted effect
+                    Image(
+                        painter = painterResource(cityTheme.backgroundImage),
+                        contentDescription = "Background for ${cityTheme.cityName}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(radius = 8.dp)
+                    )
+                    
+                    // Frosted glass overlay - semi-transparent with gradient
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xCC0F172A), // Darker at top (80% opacity)
+                                        Color(0x990F172A), // Slightly lighter middle (60% opacity)
+                                        Color(0xB30F172A)  // Medium at bottom (70% opacity)
+                                    ),
+                                    startY = 0f,
+                                    endY = Float.POSITIVE_INFINITY
+                                )
+                            )
+                    )
+                    
+                    // Subtle noise/texture effect for glass feel (via very faint pattern)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.White.copy(alpha = 0.02f))
+                    )
+                }
             } else {
                 // Default gradient background
                 Box(
@@ -261,6 +332,7 @@ fun AICentricLandingScreen(
                             onVoiceClick = onVoiceClick,
                             isListening = chatState.isListening,
                             isLoading = chatState.isLoading,
+                            interimText = chatState.interimText,
                             onManualBookClick = onManualBookClick,
                             isRtl = isRtl,
                             userLocationCode = userLocationCode
@@ -277,8 +349,10 @@ fun AICentricLandingScreen(
                             onClearChat = onClearChat,
                             onFlightSelected = onFlightSelected,
                             onSeatSelected = onSeatSelected,
+                            onLoginClick = onLoginClick,
                             isListening = chatState.isListening,
                             isLoading = chatState.isLoading,
+                            interimText = chatState.interimText,
                             listState = listState,
                             isRtl = isRtl
                         )
@@ -485,6 +559,7 @@ private fun AIHeroSection(
     onVoiceClick: () -> Unit,
     isListening: Boolean,
     isLoading: Boolean,
+    interimText: String,
     onManualBookClick: () -> Unit,
     isRtl: Boolean,
     userLocationCode: String? = null
@@ -554,6 +629,27 @@ private fun AIHeroSection(
         
         Spacer(modifier = Modifier.height(40.dp))
         
+        // Voice feedback indicator - shows what was heard
+        val isListeningState = interimText == "Listening..." || interimText == "جاري الاستماع..."
+        val isProcessingState = interimText == "Processing..." || interimText == "جاري المعالجة..."
+        val isStatusMessage = isListeningState || isProcessingState || 
+            interimText == "Didn't catch that..." || interimText == "Something went wrong. Try again."
+        
+        AnimatedVisibility(
+            visible = interimText.isNotBlank(),
+            enter = fadeIn() + slideInVertically { -it / 2 },
+            exit = fadeOut() + slideOutVertically { -it / 2 }
+        ) {
+            VoiceFeedbackCard(
+                interimText = interimText,
+                isListening = isListeningState,
+                isProcessing = isProcessingState,
+                isStatusMessage = isStatusMessage,
+                isRtl = isRtl,
+                fontFamily = fontFamily
+            )
+        }
+        
         // Main AI Input Field
         GlassInputField(
             value = inputText,
@@ -562,6 +658,7 @@ private fun AIHeroSection(
             onVoiceClick = onVoiceClick,
             isListening = isListening,
             isLoading = isLoading,
+            interimText = interimText,
             placeholder = {
                 AnimatedContent(
                     targetState = if (showHint) hints[currentHintIndex] else "",
@@ -716,8 +813,102 @@ private fun PulsatingOrb(
 }
 
 // =============================================================================
+// VOICE FEEDBACK CARD - Shows transcription status
+// =============================================================================
+
+@Composable
+private fun VoiceFeedbackCard(
+    interimText: String,
+    isListening: Boolean,
+    isProcessing: Boolean,
+    isStatusMessage: Boolean,
+    isRtl: Boolean,
+    fontFamily: androidx.compose.ui.text.font.FontFamily
+) {
+    val backgroundColor = if (isStatusMessage) AuroraCyan.copy(alpha = 0.15f) else AuroraGreen.copy(alpha = 0.15f)
+    val borderColor = if (isStatusMessage) AuroraCyan.copy(alpha = 0.3f) else AuroraGreen.copy(alpha = 0.3f)
+    
+    Surface(
+        modifier = Modifier
+            .widthIn(max = MaxCardWidth)
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = backgroundColor,
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Status icon
+            if (isListening) {
+                // Pulsating mic for listening
+                val infiniteTransition = rememberInfiniteTransition(label = "listening_pulse")
+                val alpha by infiniteTransition.animateFloat(
+                    initialValue = 0.5f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(500),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "alpha"
+                )
+                Icon(
+                    imageVector = MicIcon,
+                    contentDescription = null,
+                    tint = MicRecordingRed.copy(alpha = alpha),
+                    modifier = Modifier.size(20.dp)
+                )
+            } else if (isProcessing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = AuroraCyan,
+                    strokeWidth = 2.dp
+                )
+            } else if (!isStatusMessage) {
+                // Show checkmark for recognized text
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = AuroraGreen,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                // Error/info state
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = AuroraCyan,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                if (!isStatusMessage) {
+                    Text(
+                        text = if (isRtl) "سمعت:" else "I heard:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = fontFamily),
+                        color = VelocityColors.TextMuted
+                    )
+                }
+                Text(
+                    text = interimText,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = fontFamily),
+                    color = VelocityColors.TextMain,
+                    maxLines = 2
+                )
+            }
+        }
+    }
+}
+
+// =============================================================================
 // GLASS INPUT FIELD - Glassmorphic Chat Input
 // =============================================================================
+
+// Microphone recording color - vibrant red
+private val MicRecordingRed = Color(0xFFEF4444)
 
 @Composable
 private fun GlassInputField(
@@ -727,6 +918,7 @@ private fun GlassInputField(
     onVoiceClick: () -> Unit,
     isListening: Boolean,
     isLoading: Boolean,
+    interimText: String = "",
     placeholder: @Composable () -> Unit,
     isRtl: Boolean,
     modifier: Modifier = Modifier
@@ -734,10 +926,31 @@ private fun GlassInputField(
     val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
     val focusRequester = remember { FocusRequester() }
     
+    // Pulsating animation for microphone when listening
+    val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
+    val micScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "mic_scale"
+    )
+    val micGlow by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "mic_glow"
+    )
+    
     Surface(
         modifier = modifier.height(64.dp),
         shape = RoundedCornerShape(32.dp),
-        color = GlassWhite,
+        color = GlassDark,
         border = BorderStroke(1.dp, GlassBorder)
     ) {
         Row(
@@ -746,23 +959,48 @@ private fun GlassInputField(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Voice button
-            IconButton(
-                onClick = onVoiceClick,
+            // Voice/Microphone button with pulsating animation when listening
+            Box(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isListening) AuroraCyan.copy(alpha = 0.2f)
-                        else Color.Transparent
-                    )
-                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable(onClick = onVoiceClick)
+                    .pointerHoverIcon(PointerIcon.Hand),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (isListening) Icons.Default.Star else Icons.Default.Phone,
-                    contentDescription = if (isListening) "Stop" else "Speak",
-                    tint = if (isListening) AuroraCyan else VelocityColors.TextMuted
-                )
+                // Pulsating glow background when listening
+                if (isListening) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .scale(micScale)
+                            .background(
+                                color = MicRecordingRed.copy(alpha = micGlow * 0.4f),
+                                shape = CircleShape
+                            )
+                    )
+                }
+                // Inner circle background
+                Box(
+                    modifier = Modifier
+                        .size(if (isListening) 40.dp else 48.dp)
+                        .scale(if (isListening) micScale else 1f)
+                        .background(
+                            color = if (isListening) MicRecordingRed.copy(alpha = 0.2f)
+                            else Color.Transparent,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = MicIcon,
+                        contentDescription = if (isListening) "Stop listening" else "Start voice input",
+                        tint = if (isListening) MicRecordingRed else VelocityColors.TextMuted,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .scale(if (isListening) micScale else 1f)
+                    )
+                }
             }
             
             // Text input
@@ -840,8 +1078,10 @@ private fun ConversationView(
     onClearChat: () -> Unit,
     onFlightSelected: (String) -> Unit,
     onSeatSelected: (String) -> Unit,
+    onLoginClick: () -> Unit,
     isListening: Boolean,
     isLoading: Boolean,
+    interimText: String = "",
     listState: androidx.compose.foundation.lazy.LazyListState,
     isRtl: Boolean
 ) {
@@ -896,6 +1136,7 @@ private fun ConversationView(
                     onFlightSelected = onFlightSelected,
                     onSeatSelected = onSeatSelected,
                     onSuggestionTapped = onSuggestionTapped,
+                    onLoginClick = onLoginClick,
                     isRtl = isRtl
                 )
             }
@@ -920,6 +1161,7 @@ private fun ConversationView(
             onVoiceClick = onVoiceClick,
             isListening = isListening,
             isLoading = isLoading,
+            interimText = interimText,
             placeholder = {
                 Text(
                     text = if (isRtl) "اكتب رسالتك..." else "Type your message...",
@@ -945,6 +1187,7 @@ private fun ConversationItem(
     onFlightSelected: (String) -> Unit,
     onSeatSelected: (String) -> Unit,
     onSuggestionTapped: (String) -> Unit,
+    onLoginClick: () -> Unit,
     isRtl: Boolean
 ) {
     val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
@@ -982,6 +1225,7 @@ private fun ConversationItem(
                 onFlightSelected = onFlightSelected,
                 onSeatSelected = onSeatSelected,
                 onActionClick = { action -> onSuggestionTapped(action) },
+                onLoginClick = onLoginClick,
                 isRtl = isRtl
             )
         }
@@ -1073,6 +1317,7 @@ private fun DynamicContentCard(
     onFlightSelected: (String) -> Unit,
     onSeatSelected: (String) -> Unit,
     onActionClick: (String) -> Unit,
+    onLoginClick: () -> Unit,
     isRtl: Boolean
 ) {
     Surface(
@@ -1121,6 +1366,15 @@ private fun DynamicContentCard(
             ChatUiType.CLARIFICATION -> ClarificationCard(
                 uiData = uiData,
                 onOptionClick = onActionClick,
+                isRtl = isRtl
+            )
+            ChatUiType.SIGN_IN_REQUIRED -> SignInRequiredCard(
+                onLoginClick = onLoginClick,
+                isRtl = isRtl
+            )
+            ChatUiType.PASSENGER_SELECT -> PassengerSelectCard(
+                uiData = uiData,
+                onPassengerSelected = { selection -> onActionClick(selection) },
                 isRtl = isRtl
             )
             else -> {
@@ -1373,6 +1627,226 @@ private fun BookingConfirmedCard(uiData: String?, isRtl: Boolean) {
 }
 
 @Composable
+private fun SignInRequiredCard(
+    onLoginClick: () -> Unit,
+    isRtl: Boolean
+) {
+    val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    Column(
+        modifier = Modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.Person,
+            contentDescription = null,
+            tint = AuroraCyan,
+            modifier = Modifier.size(48.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = if (isRtl) "تسجيل الدخول مطلوب" else "Sign In Required",
+            style = MaterialTheme.typography.titleLarge.copy(fontFamily = fontFamily),
+            color = VelocityColors.TextMain,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = if (isRtl) 
+                "سجّل دخولك لإتمام الحجز وحفظ معلوماتك" 
+                else "Sign in to complete your booking and save your details",
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = fontFamily),
+            color = VelocityColors.TextMuted,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(
+            onClick = onLoginClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .pointerHoverIcon(PointerIcon.Hand),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AuroraCyan,
+                contentColor = Color.White
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isRtl) "تسجيل الدخول" else "Sign In",
+                style = MaterialTheme.typography.labelLarge.copy(fontFamily = fontFamily),
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun PassengerSelectCard(
+    uiData: String?,
+    onPassengerSelected: (String) -> Unit,
+    isRtl: Boolean
+) {
+    val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    
+    // Parse travelers from JSON
+    val payload = remember(uiData) { parsePassengerSelectFromJson(uiData) }
+    
+    Column(modifier = Modifier.padding(20.dp)) {
+        Text(
+            text = if (isRtl) "من سيسافر؟" else "Who will be traveling?",
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = fontFamily),
+            color = VelocityColors.TextMain,
+            fontWeight = FontWeight.SemiBold
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        if (payload.travelers.isEmpty()) {
+            Text(
+                text = if (isRtl) "لم يتم العثور على مسافرين محفوظين" else "No saved travelers found",
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = fontFamily),
+                color = VelocityColors.TextMuted
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                payload.travelers.forEach { traveler ->
+                    TravelerOptionRow(
+                        name = traveler.name,
+                        isMainTraveler = traveler.isMainTraveler,
+                        onClick = { 
+                            onPassengerSelected("Book for ${traveler.name}")
+                        },
+                        isRtl = isRtl
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Quick action buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = { onPassengerSelected("Book for myself") },
+                modifier = Modifier
+                    .weight(1f)
+                    .pointerHoverIcon(PointerIcon.Hand),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, AuroraCyan)
+            ) {
+                Text(
+                    text = if (isRtl) "لي فقط" else "Just me",
+                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = fontFamily),
+                    color = AuroraCyan
+                )
+            }
+            OutlinedButton(
+                onClick = { onPassengerSelected("Book for all travelers") },
+                modifier = Modifier
+                    .weight(1f)
+                    .pointerHoverIcon(PointerIcon.Hand),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, AuroraCyan)
+            ) {
+                Text(
+                    text = if (isRtl) "الجميع" else "All",
+                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = fontFamily),
+                    color = AuroraCyan
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TravelerOptionRow(
+    name: String,
+    isMainTraveler: Boolean,
+    onClick: () -> Unit,
+    isRtl: Boolean
+) {
+    val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerHoverIcon(PointerIcon.Hand),
+        shape = RoundedCornerShape(12.dp),
+        color = GlassWhite,
+        border = BorderStroke(1.dp, GlassBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = AuroraCyan,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = fontFamily),
+                    color = VelocityColors.TextMain,
+                    fontWeight = FontWeight.Medium
+                )
+                if (isMainTraveler) {
+                    Text(
+                        text = if (isRtl) "أنت" else "You",
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = fontFamily),
+                        color = AuroraCyan
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Default.ArrowForward,
+                contentDescription = null,
+                tint = VelocityColors.TextMuted,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+// Data class for passenger select payload
+@kotlinx.serialization.Serializable
+private data class PassengerSelectPayload(
+    val travelers: List<TravelerOption> = emptyList(),
+    val flightNumber: String = ""
+)
+
+@kotlinx.serialization.Serializable
+private data class TravelerOption(
+    val id: String = "",
+    val name: String = "",
+    val isMainTraveler: Boolean = false
+)
+
+private fun parsePassengerSelectFromJson(json: String?): PassengerSelectPayload {
+    if (json.isNullOrBlank()) return PassengerSelectPayload()
+    return try {
+        val parsed = kotlinx.serialization.json.Json.decodeFromString<PassengerSelectPayload>(json)
+        parsed
+    } catch (e: Exception) {
+        PassengerSelectPayload()
+    }
+}
+
+@Composable
 private fun DestinationSuggestionsCard(
     uiData: String?,
     onDestinationClick: (String) -> Unit,
@@ -1499,23 +1973,23 @@ private fun DestinationCard(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Weather info if available
-                if (destination.temperature != null && suggestionType == "weather") {
+                // Weather info - always show if available
+                if (destination.temperature != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        // Weather icon
-                        val weatherIcon = when (destination.weatherCondition?.lowercase()) {
-                            "sunny" -> Icons.Default.Star
-                            "cloudy" -> Icons.Default.Favorite
-                            else -> Icons.Default.Star
+                        // Weather icon based on condition
+                        val weatherEmoji = when (destination.weatherCondition?.lowercase()) {
+                            "sunny" -> "☀️"
+                            "partly_cloudy" -> "⛅"
+                            "cloudy" -> "☁️"
+                            "rainy" -> "🌧️"
+                            else -> "☀️"
                         }
-                        Icon(
-                            imageVector = weatherIcon,
-                            contentDescription = null,
-                            tint = AuroraCyan,
-                            modifier = Modifier.size(16.dp)
+                        Text(
+                            text = weatherEmoji,
+                            style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
                             text = "${destination.temperature}°C",
@@ -1524,22 +1998,13 @@ private fun DestinationCard(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    
-                    destination.reason?.let { reason ->
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = reason,
-                            style = MaterialTheme.typography.labelSmall.copy(fontFamily = fontFamily),
-                            color = VelocityColors.TextMuted,
-                            maxLines = 2
-                        )
-                    }
                 }
                 
-                // Reason/description for non-weather suggestions
-                if (suggestionType != "weather" && destination.reason != null) {
+                // Reason/description
+                destination.reason?.let { reason ->
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = destination.reason,
+                        text = reason,
                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = fontFamily),
                         color = VelocityColors.TextMuted,
                         maxLines = 2
@@ -1914,19 +2379,27 @@ private fun parseDestinationsFromJson(uiData: String?): Pair<String, List<Parsed
                 (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toDoubleOrNull()
             }
             
-            val temperature = suggObj["temperature"]?.let { 
+            // Parse nested weather object
+            val weatherObj = suggObj["weather"]?.let { it as? kotlinx.serialization.json.JsonObject }
+            val temperature = weatherObj?.get("temperature")?.let { 
+                (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()
+            } ?: suggObj["temperature"]?.let { 
                 (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()
             }
             
-            val weatherCondition = suggObj["weatherCondition"]?.let { 
+            val weatherCondition = weatherObj?.get("condition")?.let { 
                 (it as? kotlinx.serialization.json.JsonPrimitive)?.content 
+            } ?: suggObj["weatherCondition"]?.let { 
+                (it as? kotlinx.serialization.json.JsonPrimitive)?.content 
+            }
+            
+            val weatherDescription = weatherObj?.get("description")?.let {
+                (it as? kotlinx.serialization.json.JsonPrimitive)?.content
             }
             
             val reason = suggObj["reason"]?.let { 
                 (it as? kotlinx.serialization.json.JsonPrimitive)?.content 
-            } ?: suggObj["weatherDescription"]?.let { 
-                (it as? kotlinx.serialization.json.JsonPrimitive)?.content 
-            } ?: suggObj["description"]?.let { 
+            } ?: weatherDescription ?: suggObj["description"]?.let { 
                 (it as? kotlinx.serialization.json.JsonPrimitive)?.content 
             }
             

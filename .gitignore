@@ -46,6 +46,8 @@ Desktop.ini
 .env.*.local
 *.local.properties
 local.properties
+application-local.yml
+application-local.properties
 
 # Database (H2 file-based database)
 data/

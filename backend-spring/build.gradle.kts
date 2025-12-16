@@ -12,9 +12,6 @@ dependencies {
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.security)
     
-    // Spring Dotenv - automatically load .env files
-    implementation("me.paulschwarz:spring-dotenv:4.0.0")
-    
     // Spring Data R2DBC for reactive database access
     implementation(libs.spring.boot.starter.data.r2dbc)
     
@@ -43,6 +40,7 @@ dependencies {
     // AWS Lex & Polly (Voice)
     implementation("software.amazon.awssdk:lexruntimev2:2.25.11")
     implementation("software.amazon.awssdk:polly:2.25.11")
+    implementation("software.amazon.awssdk:transcribestreaming:2.25.11")
 
     // AWS Bedrock
     implementation("software.amazon.awssdk:bedrockruntime:2.25.11")

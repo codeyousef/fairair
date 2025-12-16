@@ -76,6 +76,17 @@ class ChatScreenModel(
     // Current context (PNR, screen, etc.)
     private var currentContext: ChatContextDto? = null
     
+    // Pending booking context for multi-turn conversations
+    private var pendingOrigin: String? = null
+    private var pendingDestination: String? = null
+    private var pendingDate: String? = null
+    private var pendingPassengers: Int? = null
+    private var pendingSearchId: String? = null
+    private var pendingSelectedFlight: String? = null
+    
+    // Track if user was prompted to sign in to continue booking
+    private var pendingSignInForBooking: Boolean = false
+    
     // User location state for origin detection
     private var userOriginAirport: String? = null
     private var userLatitude: Double? = null
@@ -140,6 +151,23 @@ class ChatScreenModel(
     fun getUserOriginAirport(): String? = userOriginAirport
 
     /**
+     * Called after user successfully signs in.
+     * If there was a pending booking action, automatically continue it.
+     */
+    fun onUserSignedIn() {
+        println("ChatScreenModel: User signed in, pendingSignInForBooking=$pendingSignInForBooking, pendingSelectedFlight=$pendingSelectedFlight")
+        if (pendingSignInForBooking && pendingSelectedFlight != null) {
+            pendingSignInForBooking = false
+            // Automatically confirm the booking now that user is signed in
+            sendMessage("Yes, confirm my booking for flight $pendingSelectedFlight")
+        } else if (pendingSignInForBooking) {
+            pendingSignInForBooking = false
+            // Just let the user know they can continue
+            sendMessage("I've signed in, please continue with my booking")
+        }
+    }
+
+    /**
      * Builds the full context for the current message, including user info and search state.
      */
     private fun buildFullContext(): ChatContextDto {
@@ -152,12 +180,18 @@ class ChatScreenModel(
             currentScreen = currentContext?.currentScreen,
             userId = user?.id,
             userEmail = user?.email,
-            lastSearchId = searchResult?.searchId,
-            lastFlightNumber = selectedFlight?.flight?.flightNumber,
+            // Use pending search/flight from chat if bookingFlowState doesn't have them
+            lastSearchId = searchResult?.searchId ?: pendingSearchId,
+            lastFlightNumber = selectedFlight?.flight?.flightNumber ?: pendingSelectedFlight,
             userOriginAirport = userOriginAirport,
             userLatitude = userLatitude,
             userLongitude = userLongitude,
-            metadata = currentContext?.metadata ?: emptyMap()
+            metadata = currentContext?.metadata ?: emptyMap(),
+            // Include pending booking state for conversation continuity
+            pendingOrigin = pendingOrigin,
+            pendingDestination = pendingDestination,
+            pendingDate = pendingDate,
+            pendingPassengers = pendingPassengers
         )
     }
 
@@ -231,6 +265,24 @@ class ChatScreenModel(
                 is ApiResult.Success -> {
                     val response = result.data
                     println("ChatScreenModel: Received response - uiType=${response.uiType}, uiData length=${response.uiData?.length ?: 0}")
+                    
+                    // Track if user needs to sign in to continue booking
+                    if (response.uiType == ChatUiType.SIGN_IN_REQUIRED) {
+                        pendingSignInForBooking = true
+                        println("ChatScreenModel: Sign-in required for booking, will resume after login")
+                    }
+                    
+                    // Update pending booking context from response for conversation continuity
+                    response.pendingContext?.let { pending ->
+                        pendingOrigin = pending.origin ?: pendingOrigin
+                        pendingDestination = pending.destination ?: pendingDestination
+                        pendingDate = pending.date ?: pendingDate
+                        pendingPassengers = pending.passengers ?: pendingPassengers
+                        pendingSearchId = pending.searchId ?: pendingSearchId
+                        pendingSelectedFlight = pending.selectedFlight ?: pendingSelectedFlight
+                        println("ChatScreenModel: Updated pending context - origin=$pendingOrigin, dest=$pendingDestination, date=$pendingDate, searchId=$pendingSearchId, selectedFlight=$pendingSelectedFlight")
+                    }
+                    
                     val aiMessage = ChatMessage(
                         id = Uuid.random().toString(),
                         text = response.text,

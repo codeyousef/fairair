@@ -81,4 +81,24 @@ class ReferenceDataService(
     fun getCityCodesMap(): Map<String, List<String>> {
         return codeToAliasesMap
     }
+    
+    /**
+     * Get all destinations reachable from a given origin airport code.
+     */
+    fun getDestinationsFrom(origin: String): List<String> {
+        return validRoutes
+            .filter { it.startsWith("$origin-") }
+            .map { it.substringAfter("-") }
+    }
+    
+    /**
+     * Get city name for an airport code (returns the first alias that looks like a city name).
+     */
+    fun getCityName(code: String): String {
+        val aliases = codeToAliasesMap[code] ?: return code
+        // Return the alias that's not the code itself and looks like a name (has spaces or > 3 chars)
+        return aliases.firstOrNull { it != code.lowercase() && it.length > 3 } 
+            ?: aliases.firstOrNull { it != code.lowercase() } 
+            ?: code
+    }
 }

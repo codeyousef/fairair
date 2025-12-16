@@ -438,6 +438,8 @@ private fun WasmAppContent() {
                                         currentUser = user
                                         authToken = token
                                         currentScreen = WasmScreen.LANDING
+                                        // Notify chat that user signed in to resume any pending booking
+                                        chatScreenModel.onUserSignedIn()
                                     },
                                     onBack = { navigateBack() }
                                 )

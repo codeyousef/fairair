@@ -1,6 +1,6 @@
 package com.fairair.ai.booking.tool
 
-import com.fairair.client.NavitaireClient
+import com.fairair.service.FlightService
 import com.fairair.contract.model.FlightSearchRequest
 import com.fairair.contract.model.FlightResponse
 import com.fairair.contract.model.AirportCode
@@ -12,7 +12,7 @@ import kotlinx.datetime.LocalDate
 
 @Component
 class NavitaireTools(
-    private val navitaireClient: NavitaireClient
+    private val flightService: FlightService
 ) {
     
     // Extension function as requested
@@ -31,6 +31,7 @@ class NavitaireTools(
             passengers = PassengerCounts(adults = passengers, children = 0, infants = 0)
         )
         
-        return navitaireClient.searchFlights(request)
+        // Use FlightService which handles caching
+        return flightService.searchFlights(request)
     }
 }

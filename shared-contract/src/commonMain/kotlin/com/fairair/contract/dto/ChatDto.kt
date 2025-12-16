@@ -53,7 +53,17 @@ data class ChatContextDto(
     /** Whether geolocation permission was granted */
     val hasLocationPermission: Boolean = false,
     /** Any additional context key-value pairs */
-    val metadata: Map<String, String> = emptyMap()
+    val metadata: Map<String, String> = emptyMap(),
+    
+    // ========== Partial booking state for conversation continuity ==========
+    /** Partially extracted origin city/code from previous messages */
+    val pendingOrigin: String? = null,
+    /** Partially extracted destination city/code from previous messages */
+    val pendingDestination: String? = null,
+    /** Partially extracted travel date from previous messages */
+    val pendingDate: String? = null,
+    /** Partially extracted passenger count from previous messages */
+    val pendingPassengers: Int? = null
 )
 
 // ============================================================================
@@ -76,8 +86,59 @@ data class ChatResponseDto(
     /** Whether the AI is still processing (for streaming) */
     val isPartial: Boolean = false,
     /** Detected language of the conversation */
-    val detectedLanguage: String? = null
+    val detectedLanguage: String? = null,
+    /** Partial booking context to pass back in next request for conversation continuity */
+    val pendingContext: PendingBookingContext? = null
 )
+
+/**
+ * Partial booking state for multi-turn conversations.
+ * When the AI asks follow-up questions, this tracks what's already been collected.
+ */
+@Serializable
+data class PendingBookingContext(
+    val origin: String? = null,
+    val destination: String? = null,
+    val date: String? = null,
+    val passengers: Int? = null,
+    /** Search ID when flights are returned, for flight selection context */
+    val searchId: String? = null,
+    /** Selected flight number for booking confirmation */
+    val selectedFlight: String? = null,
+    /** Selected fare family (FLY, FLEX, EXTRA) */
+    val fareFamily: String? = null,
+    /** Current booking flow step */
+    val bookingStep: BookingFlowStep? = null,
+    /** Selected traveler IDs for booking */
+    val selectedTravelerIds: List<String>? = null,
+    /** Manually entered passenger data (JSON) for users without saved travelers */
+    val passengerData: String? = null
+)
+
+/**
+ * Tracks the current step in the AI booking flow.
+ */
+@Serializable
+enum class BookingFlowStep {
+    /** Initial state - no booking in progress */
+    @SerialName("NONE")
+    NONE,
+    /** Flight has been selected, awaiting passenger selection */
+    @SerialName("FLIGHT_SELECTED")
+    FLIGHT_SELECTED,
+    /** Awaiting passenger details (for users without saved travelers) */
+    @SerialName("AWAITING_PASSENGERS")
+    AWAITING_PASSENGERS,
+    /** Passengers selected/entered, ready to confirm */
+    @SerialName("READY_TO_CONFIRM")
+    READY_TO_CONFIRM,
+    /** Booking is being created */
+    @SerialName("CREATING_BOOKING")
+    CREATING_BOOKING,
+    /** Booking completed */
+    @SerialName("BOOKING_COMPLETE")
+    BOOKING_COMPLETE
+}
 
 /**
  * Types of UI components the AI can request to render.
@@ -142,7 +203,11 @@ enum class ChatUiType {
 
     /** Display payment form */
     @SerialName("PAYMENT_FORM")
-    PAYMENT_FORM
+    PAYMENT_FORM,
+
+    /** Prompt user to sign in to continue */
+    @SerialName("SIGN_IN_REQUIRED")
+    SIGN_IN_REQUIRED
 }
 
 // ============================================================================

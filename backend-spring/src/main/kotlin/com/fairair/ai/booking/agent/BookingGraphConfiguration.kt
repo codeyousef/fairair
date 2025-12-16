@@ -35,8 +35,9 @@ class BookingGraphConfiguration(
 
     private suspend fun extractAndValidateEntities(context: MutableMap<String, Any>): MutableMap<String, Any> {
         val userInput = context["userInput"] as? String ?: throw IllegalArgumentException("userInput required")
+        val chatContext = context["chatContext"] as? com.fairair.contract.dto.ChatContextDto
         
-        val extracted = entityExtractionService.extractAndValidate(userInput)
+        val extracted = entityExtractionService.extractAndValidate(userInput, chatContext)
         return extracted.toMutableMap()
     }
 
@@ -56,18 +57,28 @@ class BookingGraphConfiguration(
         
         val result = navitaireTools.searchFlights(origin, destination, date, passengers)
         
-        return mutableMapOf("flightResult" to result)
+        return mutableMapOf(
+            "flightResult" to result,
+            "origin" to origin,
+            "destination" to destination,
+            "date" to dateStr,
+            "passengers" to passengers
+        )
     }
 
     private suspend fun generateUserResponse(context: MutableMap<String, Any>): MutableMap<String, Any> {
         val result = context["flightResult"] as FlightResponse
+        val origin = context["origin"] as? String
+        val destination = context["destination"] as? String
+        val date = context["date"] as? String
+        val passengers = context["passengers"] as? Int
         
         val response = if (result.isEmpty) {
             "I couldn't find any flights for that route and date. Please try another date."
         } else {
             val top3 = result.flights.take(3)
             val summary = top3.joinToString("\n") { 
-                "${it.flightNumber} (${it.formatDuration()}) - ${it.lowestFare().price.amountMinor} ${it.lowestFare().price.currency}" 
+                "${it.flightNumber} (${it.formatDuration()}) - ${it.lowestFare().price.formatDisplay()}" 
             }
             "I found ${result.count} flights! Here are the top options:\n$summary"
         }
@@ -77,6 +88,14 @@ class BookingGraphConfiguration(
         if (!result.isEmpty) {
             output["uiType"] = ChatUiType.FLIGHT_LIST
             output["uiData"] = result
+            // Use the searchId from the actual FlightResponse so it matches the cache
+            output["pendingContext"] = com.fairair.contract.dto.PendingBookingContext(
+                origin = origin,
+                destination = destination,
+                date = date,
+                passengers = passengers,
+                searchId = result.searchId
+            )
         }
         
         return output
