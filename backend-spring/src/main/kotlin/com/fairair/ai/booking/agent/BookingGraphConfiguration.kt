@@ -38,7 +38,10 @@ class BookingGraphConfiguration(
         val chatContext = context["chatContext"] as? com.fairair.contract.dto.ChatContextDto
         
         val extracted = entityExtractionService.extractAndValidate(userInput, chatContext)
-        return extracted.toMutableMap()
+        val result = extracted.toMutableMap()
+        // Preserve userInput for language detection in later nodes
+        result["userInput"] = userInput
+        return result
     }
 
     private suspend fun executeNavitaireSearch(context: MutableMap<String, Any>): MutableMap<String, Any> {
@@ -46,6 +49,7 @@ class BookingGraphConfiguration(
         val destination = context["destination"] as String
         val dateStr = context["date"] as String
         val passengers = context["passengers"] as Int
+        val userInput = context["userInput"] as? String ?: ""
         
         val date = try {
             LocalDate.parse(dateStr)
@@ -62,7 +66,8 @@ class BookingGraphConfiguration(
             "origin" to origin,
             "destination" to destination,
             "date" to dateStr,
-            "passengers" to passengers
+            "passengers" to passengers,
+            "userInput" to userInput  // Preserve for language detection
         )
     }
 
@@ -72,15 +77,24 @@ class BookingGraphConfiguration(
         val destination = context["destination"] as? String
         val date = context["date"] as? String
         val passengers = context["passengers"] as? Int
+        val userInput = context["userInput"] as? String ?: ""
+        
+        // Detect if the user's input was in Arabic
+        val isArabic = userInput.any { it in '\u0600'..'\u06FF' || it in '\u0750'..'\u077F' || it in '\uFB50'..'\uFDFF' || it in '\uFE70'..'\uFEFF' }
         
         val response = if (result.isEmpty) {
-            "I couldn't find any flights for that route and date. Please try another date."
-        } else {
-            val top3 = result.flights.take(3)
-            val summary = top3.joinToString("\n") { 
-                "${it.flightNumber} (${it.formatDuration()}) - ${it.lowestFare().price.formatDisplay()}" 
+            if (isArabic) {
+                "ما لقيت رحلات لهذا المسار والتاريخ. جرب تاريخ ثاني."
+            } else {
+                "I couldn't find any flights for that route and date. Please try another date."
             }
-            "I found ${result.count} flights! Here are the top options:\n$summary"
+        } else {
+            // DON'T list flight numbers/prices - the UI shows them in cards
+            if (isArabic) {
+                "تمام! لقيت لك رحلات. أي وحدة تبي؟"
+            } else {
+                "Found ${result.count} flights for you. Which one works?"
+            }
         }
         
         val output = mutableMapOf<String, Any>("userResponse" to response)

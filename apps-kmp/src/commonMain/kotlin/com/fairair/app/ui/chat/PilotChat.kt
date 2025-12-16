@@ -757,6 +757,10 @@ private fun ChatMessageBubble(
     message: ChatMessage,
     isRtl: Boolean
 ) {
+    // Detect if text contains Arabic characters to choose the correct font and direction
+    val containsArabic = message.text.any { char -> char in '\u0600'..'\u06FF' || char in '\u0750'..'\u077F' || char in '\uFB50'..'\uFDFF' || char in '\uFE70'..'\uFEFF' }
+    val textDirection = if (containsArabic) LayoutDirection.Rtl else LayoutDirection.Ltr
+    
     val alignment = if (message.isFromUser) Alignment.End else Alignment.Start
     val bubbleColor = if (message.isFromUser) {
         PilotPrimaryColor
@@ -793,11 +797,15 @@ private fun ChatMessageBubble(
                         )
                         .padding(12.dp)
                 ) {
-                    Text(
-                        text = message.text,
-                        color = if (message.isError) MaterialTheme.colorScheme.onErrorContainer else textColor,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    CompositionLocalProvider(
+                        LocalLayoutDirection provides textDirection
+                    ) {
+                        Text(
+                            text = message.text,
+                            color = if (message.isError) MaterialTheme.colorScheme.onErrorContainer else textColor,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }

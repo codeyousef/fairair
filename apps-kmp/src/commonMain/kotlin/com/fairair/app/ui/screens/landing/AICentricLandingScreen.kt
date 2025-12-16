@@ -1239,7 +1239,10 @@ private fun MessageBubble(
     isError: Boolean,
     isRtl: Boolean
 ) {
-    val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    // Detect if text contains Arabic characters to choose the correct font
+    val containsArabic = text.any { char -> char in '\u0600'..'\u06FF' || char in '\u0750'..'\u077F' || char in '\uFB50'..'\uFDFF' || char in '\uFE70'..'\uFEFF' }
+    val fontFamily = if (containsArabic) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+    val textDirection = if (containsArabic) LayoutDirection.Rtl else LayoutDirection.Ltr
     
     val backgroundColor = when {
         isError -> Color(0x33FF5252)
@@ -1264,12 +1267,16 @@ private fun MessageBubble(
         color = backgroundColor,
         border = if (!isFromUser) BorderStroke(1.dp, GlassBorder) else null
     ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = fontFamily),
-            color = textColor
-        )
+        CompositionLocalProvider(
+            LocalLayoutDirection provides textDirection
+        ) {
+            Text(
+                text = text,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = fontFamily),
+                color = textColor
+            )
+        }
     }
 }
 
@@ -2078,13 +2085,15 @@ private fun QuickSuggestionsRow(
     onSuggestionTapped: (String) -> Unit,
     isRtl: Boolean
 ) {
-    val fontFamily = if (isRtl) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
-    
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
         items(suggestions) { suggestion ->
+            // Detect if text contains Arabic characters to choose the correct font
+            val containsArabic = suggestion.any { char -> char in '\u0600'..'\u06FF' || char in '\u0750'..'\u077F' || char in '\uFB50'..'\uFDFF' || char in '\uFE70'..'\uFEFF' }
+            val fontFamily = if (containsArabic) NotoKufiArabicFontFamily() else SpaceGroteskFontFamily()
+            
             Surface(
                 modifier = Modifier
                     .clickable { onSuggestionTapped(suggestion) }

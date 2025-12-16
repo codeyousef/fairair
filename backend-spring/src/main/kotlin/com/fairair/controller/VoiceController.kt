@@ -60,10 +60,12 @@ class VoiceController(
     /**
      * Transcribe audio to text.
      * Converts WebM/Opus to PCM using ffmpeg, then sends to AWS Transcribe.
+     * 
+     * Supports automatic language identification between English and Arabic (Gulf dialect).
      */
     @PostMapping("/api/voice/transcribe")
     suspend fun transcribeAudio(@RequestBody request: TranscribeRequest): TranscribeResponse {
-        logger.info("Transcribe request - audio length: ${request.audio.length}")
+        logger.info("Transcribe request - audio length: ${request.audio.length}, requested language: ${request.language}")
         
         return try {
             val audioBytes = Base64.getDecoder().decode(request.audio)
@@ -77,28 +79,64 @@ class VoiceController(
             }
             logger.info("Converted to PCM: ${pcmBytes.size} bytes")
             
-            // Try English first, then Arabic
-            val englishResult = transcribeWithPcm(pcmBytes, LanguageCode.EN_US)
-            logger.info("English transcription result: '$englishResult'")
+            // Try Arabic Gulf first (ar-AE) - best for Khaleeji dialect
+            val arabicGulfResult = transcribeWithPcm(pcmBytes, "ar-AE")
+            logger.info("Arabic Gulf (ar-AE) transcription result: '$arabicGulfResult'")
+            
+            if (arabicGulfResult.isNotBlank()) {
+                return TranscribeResponse(text = arabicGulfResult, detectedLanguage = "ar")
+            }
+            
+            // Fallback: try English
+            val englishResult = transcribeWithPcm(pcmBytes, "en-US")
+            logger.info("English (en-US) transcription result: '$englishResult'")
             
             if (englishResult.isNotBlank()) {
                 return TranscribeResponse(text = englishResult, detectedLanguage = "en")
             }
             
-            // If English didn't produce results, try Arabic
-            val arabicResult = transcribeWithPcm(pcmBytes, LanguageCode.fromValue("ar-SA"))
-            logger.info("Arabic transcription result: '$arabicResult'")
-            
-            if (arabicResult.isNotBlank()) {
-                return TranscribeResponse(text = arabicResult, detectedLanguage = "ar")
-            }
-            
-            // Try to detect language from any results
-            logger.warn("No transcription results from either language")
+            logger.warn("No transcription results from Arabic or English")
             TranscribeResponse(text = "", detectedLanguage = "")
         } catch (e: Exception) {
             logger.error("Transcription failed", e)
             TranscribeResponse(error = "Transcription failed: ${e.message}")
+        }
+    }
+    
+    /**
+     * Create an audio stream publisher for sending PCM data in chunks.
+     */
+    private fun createAudioPublisher(pcmBytes: ByteArray): Publisher<AudioStream> {
+        return object : Publisher<AudioStream> {
+            override fun subscribe(subscriber: Subscriber<in AudioStream>) {
+                subscriber.onSubscribe(object : Subscription {
+                    private var sent = false
+                    override fun request(n: Long) {
+                        if (!sent && n > 0) {
+                            sent = true
+                            try {
+                                val chunkSize = 8192
+                                var offset = 0
+                                while (offset < pcmBytes.size) {
+                                    val end = minOf(offset + chunkSize, pcmBytes.size)
+                                    val chunk = pcmBytes.copyOfRange(offset, end)
+                                    subscriber.onNext(
+                                        AudioEvent.builder()
+                                            .audioChunk(SdkBytes.fromByteArray(chunk))
+                                            .build()
+                                    )
+                                    offset = end
+                                }
+                                subscriber.onComplete()
+                            } catch (e: Exception) {
+                                logger.error("Error sending audio", e)
+                                subscriber.onError(e)
+                            }
+                        }
+                    }
+                    override fun cancel() {}
+                })
+            }
         }
     }
     
@@ -149,18 +187,19 @@ class VoiceController(
     }
     
     /**
-     * Transcribe PCM audio with AWS Transcribe Streaming.
+     * Transcribe PCM audio with AWS Transcribe Streaming for a specific language.
+     * @param languageCodeStr Language code string like "ar-AE", "ar-SA", "en-US"
      */
-    private suspend fun transcribeWithPcm(pcmBytes: ByteArray, languageCode: LanguageCode): String {
+    private suspend fun transcribeWithPcm(pcmBytes: ByteArray, languageCodeStr: String): String {
         val transcriptResult = AtomicReference("")
         val completionFuture = CompletableFuture<String>()
         
         val responseHandler = StartStreamTranscriptionResponseHandler.builder()
             .onResponse { response ->
-                logger.debug("Transcribe session started for $languageCode: ${response.sessionId()}")
+                logger.debug("Transcribe session started for $languageCodeStr: ${response.sessionId()}")
             }
             .onError { error ->
-                logger.warn("Transcribe error for $languageCode: ${error.message}")
+                logger.warn("Transcribe error for $languageCodeStr: ${error.message}")
                 if (!completionFuture.isDone) {
                     completionFuture.complete("") // Return empty on error
                 }
@@ -187,63 +226,37 @@ class VoiceController(
             }
             .build()
         
-        // Create audio publisher that sends PCM data in chunks
-        val audioStream = object : Publisher<AudioStream> {
-            override fun subscribe(subscriber: Subscriber<in AudioStream>) {
-                subscriber.onSubscribe(object : Subscription {
-                    private var sent = false
-                    override fun request(n: Long) {
-                        if (!sent && n > 0) {
-                            sent = true
-                            try {
-                                // Send audio in chunks (8KB chunks recommended)
-                                val chunkSize = 8192
-                                var offset = 0
-                                while (offset < pcmBytes.size) {
-                                    val end = minOf(offset + chunkSize, pcmBytes.size)
-                                    val chunk = pcmBytes.copyOfRange(offset, end)
-                                    subscriber.onNext(
-                                        AudioEvent.builder()
-                                            .audioChunk(SdkBytes.fromByteArray(chunk))
-                                            .build()
-                                    )
-                                    offset = end
-                                }
-                                subscriber.onComplete()
-                            } catch (e: Exception) {
-                                logger.error("Error sending audio", e)
-                                subscriber.onError(e)
-                            }
-                        }
-                    }
-                    override fun cancel() {}
-                })
-            }
-        }
+        // Reuse the audio publisher helper
+        val audioStream = createAudioPublisher(pcmBytes)
         
-        // Build transcription request for PCM audio
+        // Build transcription request for PCM audio using string language code
         val transcribeRequest = StartStreamTranscriptionRequest.builder()
-            .languageCode(languageCode)
+            .languageCode(languageCodeStr)
             .mediaEncoding(MediaEncoding.PCM)
             .mediaSampleRateHertz(16000)
             .build()
         
-        logger.info("Starting Transcribe stream for $languageCode with PCM encoding, 16kHz")
+        logger.info("Starting Transcribe stream for $languageCodeStr with PCM encoding, 16kHz")
         
-        withContext(Dispatchers.IO) {
-            transcribeStreamingClient.startStreamTranscription(
-                transcribeRequest,
-                audioStream,
-                responseHandler
-            )
+        // Start transcription and wait for it to complete
+        try {
+            withContext(Dispatchers.IO) {
+                transcribeStreamingClient.startStreamTranscription(
+                    transcribeRequest,
+                    audioStream,
+                    responseHandler
+                ).get(20, TimeUnit.SECONDS) // Await the streaming operation
+            }
+        } catch (e: Exception) {
+            logger.warn("Transcription stream error for $languageCodeStr: ${e.message}")
         }
         
         // Wait for completion with timeout
         return withContext(Dispatchers.IO) {
             try {
-                completionFuture.get(15, TimeUnit.SECONDS).trim()
+                completionFuture.get(5, TimeUnit.SECONDS).trim()
             } catch (e: java.util.concurrent.TimeoutException) {
-                logger.warn("Transcription timeout for $languageCode")
+                logger.warn("Transcription timeout for $languageCodeStr")
                 transcriptResult.get().trim()
             }
         }
