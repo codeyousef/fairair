@@ -10,8 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.test.context.ActiveProfiles
-import com.fairair.ai.booking.executor.BedrockLlamaExecutor
+import com.fairair.ai.GenAiProvider
+import com.fairair.ai.AiChatResponse
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.whenever
 import org.mockito.kotlin.verify
 
@@ -26,21 +28,21 @@ class KoogIntegrationTest {
     private lateinit var navitaireClient: NavitaireClient
 
     @MockBean
-    private lateinit var bedrockExecutor: BedrockLlamaExecutor
+    private lateinit var genAiProvider: GenAiProvider
 
     @Test
     fun `should extract entities and call navitaire search`() {
         runBlocking {
-            // Mock Bedrock to return JSON
-            whenever(bedrockExecutor.generate(any())).thenReturn(
-                """
+            // Mock GenAiProvider to return JSON
+            whenever(genAiProvider.chat(any(), any(), anyOrNull())).thenReturn(
+                AiChatResponse(text = """
                 {
                     "origin": "riyadh",
                     "destination": "jeddah",
                     "date": "2025-12-25",
                     "passengers": 2
                 }
-                """
+                """)
             )
 
             // Mock Navitaire

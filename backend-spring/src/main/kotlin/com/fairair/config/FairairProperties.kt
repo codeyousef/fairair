@@ -126,6 +126,11 @@ data class AiProperties(
     val temperature: Double = 0.7,
 
     /**
+     * Dialogflow CX Agent ID
+     */
+    val agentId: String = "",
+
+    /**
      * Session timeout in seconds (default: 30 minutes)
      */
     val sessionTimeoutSeconds: Long = 1800

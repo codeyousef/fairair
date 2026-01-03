@@ -13,11 +13,12 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 import org.springframework.boot.test.mock.mockito.MockBean
-import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeAsyncClient
-import com.fairair.ai.booking.executor.BedrockLlamaExecutor
+import com.fairair.ai.GenAiProvider
+import com.fairair.ai.AiChatResponse
 import com.fairair.ai.booking.executor.LocalModelExecutor
 import org.junit.jupiter.api.BeforeEach
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.whenever
 import kotlinx.coroutines.runBlocking
 
@@ -44,10 +45,7 @@ import kotlinx.coroutines.runBlocking
 abstract class E2ETestBase {
 
     @MockBean
-    protected lateinit var bedrockRuntimeAsyncClient: BedrockRuntimeAsyncClient
-
-    @MockBean
-    protected lateinit var bedrockLlamaExecutor: BedrockLlamaExecutor
+    protected lateinit var genAiProvider: GenAiProvider
 
     @MockBean
     protected lateinit var localModelExecutor: LocalModelExecutor
@@ -65,7 +63,9 @@ abstract class E2ETestBase {
             """.trimIndent()
             
             // Stub generic responses to prevent NPEs
-            whenever(bedrockLlamaExecutor.generate(any())).thenReturn(defaultJson)
+            whenever(genAiProvider.chat(any(), any(), anyOrNull())).thenReturn(
+                AiChatResponse(text = defaultJson)
+            )
             whenever(localModelExecutor.generate(any())).thenReturn(defaultJson)
         }
     }

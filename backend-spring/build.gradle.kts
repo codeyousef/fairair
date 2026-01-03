@@ -36,16 +36,10 @@ dependencies {
 
     // Google Cloud Vertex AI
     implementation(libs.google.cloud.vertexai)
+    implementation(libs.google.cloud.speech)
+    implementation(libs.google.cloud.texttospeech)
+    implementation(libs.google.cloud.dialogflow.cx)
     
-    // AWS Lex & Polly (Voice)
-    implementation("software.amazon.awssdk:lexruntimev2:2.25.11")
-    implementation("software.amazon.awssdk:polly:2.25.11")
-    implementation("software.amazon.awssdk:transcribestreaming:2.25.11")
-
-    // AWS Bedrock
-    implementation("software.amazon.awssdk:bedrockruntime:2.25.11")
-    implementation("software.amazon.awssdk:bedrockagentruntime:2.25.11")
-
     // MongoDB Reactive
     implementation("org.mongodb:mongodb-driver-kotlin-coroutine:5.0.0")
 

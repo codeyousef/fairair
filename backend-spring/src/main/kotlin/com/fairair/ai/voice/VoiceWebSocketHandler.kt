@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono
 
 @Component
 class VoiceWebSocketHandler(
-    private val lexHandler: LexStreamingVoiceHandler
+    private val dialogflowHandler: DialogflowVoiceHandler
 ) : WebSocketHandler {
 
     private val logger = LoggerFactory.getLogger(VoiceWebSocketHandler::class.java)
@@ -44,7 +44,7 @@ class VoiceWebSocketHandler(
                 }
             }
 
-        val outputFlow = lexHandler.startVoiceSession(userId, locale, inputFlow)
+        val outputFlow = dialogflowHandler.startVoiceSession(userId, locale, inputFlow)
             .map { event ->
                 when (event) {
                     is VoiceEvent.Audio -> {

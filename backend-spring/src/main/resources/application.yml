@@ -45,6 +45,7 @@ fairair:
     enabled: true
     project-id: ${GCP_PROJECT_ID:portfolio-476219}
     location: ${GCP_REGION:us-central1}
+    agent-id: ${DIALOGFLOW_AGENT_ID:your-agent-id}
     model: llama-3.1-70b-instruct-maas
     temperature: 0.7
     max-tokens: 4096

@@ -1,8 +1,8 @@
 package com.fairair.ai.booking.service
 
+import com.fairair.ai.GenAiProvider
 import com.fairair.ai.booking.exception.EntityExtractionException
 import com.fairair.ai.booking.exception.RouteValidationException
-import com.fairair.ai.booking.executor.BedrockLlamaExecutor
 import com.fairair.ai.booking.executor.LocalModelExecutor
 import com.fairair.contract.dto.ChatContextDto
 import com.fairair.contract.dto.PendingBookingContext
@@ -12,12 +12,13 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 @Service
 class EntityExtractionService(
     private val referenceDataService: ReferenceDataService,
     private val levenshteinMatcher: LevenshteinMatcher,
-    private val bedrockExecutor: BedrockLlamaExecutor,
+    private val genAiProvider: GenAiProvider,
     private val localExecutor: LocalModelExecutor
 ) {
     private val logger = LoggerFactory.getLogger(EntityExtractionService::class.java)
@@ -174,7 +175,7 @@ class EntityExtractionService(
         logger.info("LLM prompt: $llmPrompt")
         
         val jsonStrRaw = try {
-            bedrockExecutor.generate(llmPrompt)
+            genAiProvider.chat(UUID.randomUUID().toString(), llmPrompt).text
         } catch (e: Exception) {
             logger.warn("Primary model failed, using local backup", e)
             localExecutor.generate(llmPrompt)
@@ -215,7 +216,7 @@ class EntityExtractionService(
         """.trimIndent()
         
         val code = try {
-            bedrockExecutor.generate(prompt).trim().uppercase().take(3)
+            genAiProvider.chat(UUID.randomUUID().toString(), prompt).text.trim().uppercase().take(3)
         } catch (e: Exception) {
             "UNKNOWN"
         }
