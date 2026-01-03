@@ -45,11 +45,11 @@ The project is organized into a clean monorepo structure:
 
 ```mermaid
 graph LR
-    User((User)) --> Client[Apps KMP\n(Android/iOS/Web)]
-    Client --> BFF[Backend Spring\n(WebFlux)]
-    BFF --> AI[Vertex AI & Dialogflow]
+    User((User)) --> Client["Apps KMP\n(Android/iOS/Web)"]
+    Client --> BFF["Backend Spring\n(WebFlux)"]
+    BFF --> AI["Vertex AI & Dialogflow"]
     BFF --> DB[(Database)]
-    BFF --> Navitaire[Airline Core System]
+    BFF --> Navitaire["Airline Core System"]
 ```
 
 ---
